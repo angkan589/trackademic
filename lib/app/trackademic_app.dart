@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/theme/app_theme.dart';
 import 'package:trackademic/features/welcome/presentation/welcome_screen.dart';
 
 class TrackademicApp extends StatelessWidget {
@@ -9,13 +10,7 @@ class TrackademicApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Trackademic',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3454D1),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7F9FF),
-      ),
+      theme: AppTheme.light,
       home: const WelcomeScreen(),
     );
   }
