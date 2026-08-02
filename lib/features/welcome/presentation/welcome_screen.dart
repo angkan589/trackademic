@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../authentication/presentation/sign_in_screen.dart';
+import '../../authentication/presentation/create_account_screen.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -52,16 +54,20 @@ class WelcomeScreen extends StatelessWidget {
         actions: [
           TextButton.icon(
             onPressed: () {
-              // We will add navigation later.
-            },
-            icon: const Icon(
-              Icons.login_rounded,
-              size: 18,
-            ),
-            label: Text(
-              isCompact ? 'Login' : 'Sign in',
-            ),
-          ),
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const SignInScreen(),
+                  ),
+                  );
+                  },
+                  icon: const Icon(
+                    Icons.login_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    isCompact ? 'Login' : 'Sign in',
+                  ),
+           ),
           Padding(
             padding: EdgeInsets.only(
               left: isCompact ? 2 : 8,
@@ -69,7 +75,11 @@ class WelcomeScreen extends StatelessWidget {
             ),
             child: FilledButton(
               onPressed: () {
-                // We will add navigation later.
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const CreateAccountScreen(),
+                  ),
+                );
               },
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.symmetric(
