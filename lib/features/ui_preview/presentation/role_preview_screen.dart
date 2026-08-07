@@ -37,8 +37,7 @@ class RolePreviewScreen extends StatelessWidget {
     ),
     WorkspaceDestination(
       label: 'Schedule',
-      description:
-          'Create, view, and update regular class schedules.',
+      description: 'Create, view, and update regular class schedules.',
       icon: Icons.calendar_month_outlined,
       selectedIcon: Icons.calendar_month_rounded,
     ),
@@ -61,22 +60,19 @@ class RolePreviewScreen extends StatelessWidget {
     ),
     WorkspaceDestination(
       label: 'Marks',
-      description:
-          'Review CT marks, attendance marks, and academic progress.',
+      description: 'Review CT marks, attendance marks, and academic progress.',
       icon: Icons.bar_chart_outlined,
       selectedIcon: Icons.bar_chart_rounded,
     ),
     WorkspaceDestination(
       label: 'Schedule',
-      description:
-          'View regular classes and recently updated schedules.',
+      description: 'View regular classes and recently updated schedules.',
       icon: Icons.calendar_month_outlined,
       selectedIcon: Icons.calendar_month_rounded,
     ),
     WorkspaceDestination(
       label: 'Profile',
-      description:
-          'Review personal information and academic privacy settings.',
+      description: 'Review personal information and academic privacy settings.',
       icon: Icons.person_outline_rounded,
       selectedIcon: Icons.person_rounded,
     ),
@@ -85,9 +81,7 @@ class RolePreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Trackademic UI Preview'),
-      ),
+      appBar: AppBar(title: const Text('Trackademic UI Preview')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.large),
         child: Center(
@@ -100,17 +94,12 @@ class RolePreviewScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(AppSpacing.regular),
                   decoration: BoxDecoration(
                     color: AppColors.warningBackground,
-                    borderRadius: BorderRadius.circular(
-                      AppRadius.medium,
-                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.science_outlined,
-                        color: AppColors.warning,
-                      ),
+                      Icon(Icons.science_outlined, color: AppColors.warning),
                       SizedBox(width: AppSpacing.medium),
                       Expanded(
                         child: Text(
@@ -150,9 +139,7 @@ class RolePreviewScreen extends StatelessWidget {
                   builder: (context, constraints) {
                     final isWide = constraints.maxWidth >= 760;
                     final width = isWide
-                        ? (constraints.maxWidth -
-                                AppSpacing.regular) /
-                            2
+                        ? (constraints.maxWidth - AppSpacing.regular) / 2
                         : constraints.maxWidth;
 
                     return Wrap(
@@ -177,8 +164,7 @@ class RolePreviewScreen extends StatelessWidget {
                               _openWorkspace(
                                 context,
                                 roleName: 'Teacher',
-                                destinations:
-                                    teacherDestinations,
+                                destinations: teacherDestinations,
                               );
                             },
                           ),
@@ -201,8 +187,7 @@ class RolePreviewScreen extends StatelessWidget {
                               _openWorkspace(
                                 context,
                                 roleName: 'Student',
-                                destinations:
-                                    studentDestinations,
+                                destinations: studentDestinations,
                               );
                             },
                           ),
@@ -226,10 +211,8 @@ class RolePreviewScreen extends StatelessWidget {
   }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => RoleWorkspaceScreen(
-          roleName: roleName,
-          destinations: destinations,
-        ),
+        builder: (context) =>
+            RoleWorkspaceScreen(roleName: roleName, destinations: destinations),
       ),
     );
   }
@@ -269,15 +252,9 @@ class _RoleCard extends StatelessWidget {
             height: 58,
             decoration: BoxDecoration(
               color: AppColors.informationBackground,
-              borderRadius: BorderRadius.circular(
-                AppRadius.medium,
-              ),
+              borderRadius: BorderRadius.circular(AppRadius.medium),
             ),
-            child: Icon(
-              icon,
-              color: AppColors.primary,
-              size: 30,
-            ),
+            child: Icon(icon, color: AppColors.primary, size: 30),
           ),
           const SizedBox(height: AppSpacing.large),
           Text(
@@ -291,17 +268,12 @@ class _RoleCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.small),
           Text(
             description,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: AppSpacing.large),
           for (final feature in features)
             Padding(
-              padding: const EdgeInsets.only(
-                bottom: AppSpacing.medium,
-              ),
+              padding: const EdgeInsets.only(bottom: AppSpacing.medium),
               child: Row(
                 children: [
                   const Icon(
@@ -325,10 +297,7 @@ class _RoleCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.medium),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
-              onPressed: onPressed,
-              child: Text(buttonText),
-            ),
+            child: FilledButton(onPressed: onPressed, child: Text(buttonText)),
           ),
         ],
       ),

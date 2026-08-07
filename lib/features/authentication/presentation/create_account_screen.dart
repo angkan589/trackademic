@@ -5,8 +5,7 @@ class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
 
   @override
-  State<CreateAccountScreen> createState() =>
-      _CreateAccountScreenState();
+  State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
@@ -87,10 +86,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         height: 72,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF3454D1),
-                              Color(0xFF6D5CE7),
-                            ],
+                            colors: [Color(0xFF3454D1), Color(0xFF6D5CE7)],
                           ),
                           borderRadius: BorderRadius.circular(22),
                         ),
@@ -132,9 +128,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.name,
-                      ],
+                      autofillHints: const [AutofillHints.name],
                       decoration: _inputDecoration(
                         label: 'Full name',
                         hint: 'Enter your full name',
@@ -161,9 +155,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.email,
-                      ],
+                      autofillHints: const [AutofillHints.email],
                       decoration: _inputDecoration(
                         label: 'Institutional email',
                         hint: 'student@university.edu',
@@ -215,9 +207,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       controller: _passwordController,
                       obscureText: _hidePassword,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.newPassword,
-                      ],
+                      autofillHints: const [AutofillHints.newPassword],
                       decoration: _inputDecoration(
                         label: 'Password',
                         hint: 'At least 8 characters',
@@ -272,8 +262,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               : 'Hide password',
                           onPressed: () {
                             setState(() {
-                              _hideConfirmedPassword =
-                                  !_hideConfirmedPassword;
+                              _hideConfirmedPassword = !_hideConfirmedPassword;
                             });
                           },
                           icon: Icon(
@@ -302,9 +291,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       height: 54,
                       child: FilledButton.icon(
                         onPressed: _submitForm,
-                        icon: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                        ),
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
                         label: const Text(
                           'Create account',
                           style: TextStyle(
@@ -322,9 +309,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFEAF0FF),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFD5DFFF),
-                        ),
+                        border: Border.all(color: const Color(0xFFD5DFFF)),
                       ),
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,16 +341,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       children: [
                         const Text(
                           'Already have an account?',
-                          style: TextStyle(
-                            color: Color(0xFF68728B),
-                          ),
+                          style: TextStyle(color: Color(0xFF68728B)),
                         ),
                         TextButton(
                           onPressed: () {
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute<void>(
-                                builder: (context) =>
-                                    const SignInScreen(),
+                                builder: (context) => const SignInScreen(),
                               ),
                             );
                           },
@@ -396,9 +378,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 }

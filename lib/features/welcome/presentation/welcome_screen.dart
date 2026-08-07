@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../authentication/presentation/sign_in_screen.dart';
 import '../../authentication/presentation/create_account_screen.dart';
+
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -26,17 +27,11 @@ class WelcomeScreen extends StatelessWidget {
               height: 42,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF3454D1),
-                    Color(0xFF6D5CE7),
-                  ],
+                  colors: [Color(0xFF3454D1), Color(0xFF6D5CE7)],
                 ),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: const Icon(
-                Icons.school_rounded,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.school_rounded, color: Colors.white),
             ),
             const SizedBox(width: 11),
             Text(
@@ -57,17 +52,12 @@ class WelcomeScreen extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (context) => const SignInScreen(),
-                  ),
-                  );
-                  },
-                  icon: const Icon(
-                    Icons.login_rounded,
-                    size: 18,
-                  ),
-                  label: Text(
-                    isCompact ? 'Login' : 'Sign in',
-                  ),
-           ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: Text(isCompact ? 'Login' : 'Sign in'),
+          ),
           Padding(
             padding: EdgeInsets.only(
               left: isCompact ? 2 : 8,
@@ -87,9 +77,7 @@ class WelcomeScreen extends StatelessWidget {
                   vertical: 12,
                 ),
               ),
-              child: Text(
-                isCompact ? 'Join' : 'Create account',
-              ),
+              child: Text(isCompact ? 'Join' : 'Create account'),
             ),
           ),
         ],
@@ -100,27 +88,16 @@ class WelcomeScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF7F9FF),
-              Color(0xFFEEF2FF),
-              Color(0xFFF9FBFF),
-            ],
+            colors: [Color(0xFFF7F9FF), Color(0xFFEEF2FF), Color(0xFFF9FBFF)],
           ),
         ),
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              24,
-              46,
-              24,
-              56,
-            ),
+            padding: const EdgeInsets.fromLTRB(24, 46, 24, 56),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 1150,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1150),
                 child: Column(
                   children: [
                     const _HeroSection(),
@@ -153,25 +130,15 @@ class _HeroSection extends StatelessWidget {
           return const Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                flex: 11,
-                child: message,
-              ),
+              Expanded(flex: 11, child: message),
               SizedBox(width: 54),
-              Expanded(
-                flex: 9,
-                child: attendancePreview,
-              ),
+              Expanded(flex: 9, child: attendancePreview),
             ],
           );
         }
 
         return const Column(
-          children: [
-            message,
-            SizedBox(height: 42),
-            attendancePreview,
-          ],
+          children: [message, SizedBox(height: 42), attendancePreview],
         );
       },
     );
@@ -189,16 +156,11 @@ class _HeroMessage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 8,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFE7ECFF),
             borderRadius: BorderRadius.circular(50),
-            border: Border.all(
-              color: const Color(0xFFD3DCFF),
-            ),
+            border: Border.all(color: const Color(0xFFD3DCFF)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
@@ -268,33 +230,21 @@ class _BenefitChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _BenefitChip({
-    required this.icon,
-    required this.label,
-  });
+  const _BenefitChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 13,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: const Color(0xFFE1E6F2),
-        ),
+        border: Border.all(color: const Color(0xFFE1E6F2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: const Color(0xFF3454D1),
-          ),
+          Icon(icon, size: 18, color: const Color(0xFF3454D1)),
           const SizedBox(width: 7),
           Text(
             label,
@@ -317,17 +267,12 @@ class _AttendancePreview extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF7184F4),
-            Color(0xFF9A7BEA),
-          ],
+          colors: [Color(0xFF7184F4), Color(0xFF9A7BEA)],
         ),
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3454D1).withValues(
-              alpha: 0.18,
-            ),
+            color: const Color(0xFF3454D1).withValues(alpha: 0.18),
             blurRadius: 40,
             offset: const Offset(0, 20),
           ),
@@ -396,8 +341,7 @@ class _AttendancePreview extends StatelessWidget {
                   SizedBox(width: 13),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Inside attendance area',
@@ -417,10 +361,7 @@ class _AttendancePreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.verified_rounded,
-                    color: Color(0xFF179B69),
-                  ),
+                  Icon(Icons.verified_rounded, color: Color(0xFF179B69)),
                 ],
               ),
             ),
@@ -446,24 +387,16 @@ class _AttendancePreview extends StatelessWidget {
             const SizedBox(height: 22),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFFEAF8F2),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                  color: const Color(0xFFC8EBDD),
-                ),
+                border: Border.all(color: const Color(0xFFC8EBDD)),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF16865D),
-                  ),
+                  Icon(Icons.check_circle_rounded, color: Color(0xFF16865D)),
                   SizedBox(width: 9),
                   Text(
                     'Ready to mark attendance',
@@ -494,10 +427,7 @@ class _PreviewIcon extends StatelessWidget {
         color: const Color(0xFFE7ECFF),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Icon(
-        Icons.how_to_reg_rounded,
-        color: Color(0xFF3454D1),
-      ),
+      child: const Icon(Icons.how_to_reg_rounded, color: Color(0xFF3454D1)),
     );
   }
 }
@@ -508,10 +438,7 @@ class _LiveBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFFFFECEC),
         borderRadius: BorderRadius.circular(50),
@@ -519,11 +446,7 @@ class _LiveBadge extends StatelessWidget {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.circle,
-            size: 9,
-            color: Color(0xFFE64C4C),
-          ),
+          Icon(Icons.circle, size: 9, color: Color(0xFFE64C4C)),
           SizedBox(width: 6),
           Text(
             'LIVE',
@@ -556,11 +479,7 @@ class _SessionInformationRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 21,
-          color: const Color(0xFF6D7690),
-        ),
+        Icon(icon, size: 21, color: const Color(0xFF6D7690)),
         const SizedBox(width: 11),
         Expanded(
           child: Text(
@@ -574,9 +493,7 @@ class _SessionInformationRow extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            color: positive
-                ? const Color(0xFF16865D)
-                : const Color(0xFF263252),
+            color: positive ? const Color(0xFF16865D) : const Color(0xFF263252),
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -606,10 +523,7 @@ class _FeatureSection extends StatelessWidget {
         const Text(
           'Built for both teachers and students.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF68728B),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF68728B)),
         ),
         const SizedBox(height: 28),
         LayoutBuilder(
@@ -683,16 +597,12 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: 190,
-      ),
+      constraints: const BoxConstraints(minHeight: 190),
       padding: const EdgeInsets.all(23),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFE3E8F3),
-        ),
+        border: Border.all(color: const Color(0xFFE3E8F3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,10 +614,7 @@ class _FeatureCard extends StatelessWidget {
               color: const Color(0xFFE7ECFF),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF3454D1),
-            ),
+            child: Icon(icon, color: const Color(0xFF3454D1)),
           ),
           const SizedBox(height: 18),
           Text(
@@ -721,10 +628,7 @@ class _FeatureCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             description,
-            style: const TextStyle(
-              height: 1.5,
-              color: Color(0xFF68728B),
-            ),
+            style: const TextStyle(height: 1.5, color: Color(0xFF68728B)),
           ),
         ],
       ),

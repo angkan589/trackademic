@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/features/teacher/dashboard/presentation/teacher_dashboard_screen.dart';
+import 'package:trackademic/features/teacher/schedule/presentation/teacher_schedule_screen.dart';
+import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 
 class WorkspaceDestination {
   final String label;
@@ -27,8 +30,7 @@ class RoleWorkspaceScreen extends StatefulWidget {
   });
 
   @override
-  State<RoleWorkspaceScreen> createState() =>
-      _RoleWorkspaceScreenState();
+  State<RoleWorkspaceScreen> createState() => _RoleWorkspaceScreenState();
 }
 
 class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
@@ -39,11 +41,20 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
     final destination = widget.destinations[_selectedIndex];
 
-    final content = _ModulePlaceholder(
-      roleName: widget.roleName,
-      destination: destination,
-    );
+    final Widget content;
 
+    if (widget.roleName == 'Teacher' && _selectedIndex == 0) {
+      content = const TeacherDashboardScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 1) {
+      content = const TeacherScheduleScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 2) {
+      content = const TeacherCreateAttendanceScreen();
+    } else {
+      content = _ModulePlaceholder(
+        roleName: widget.roleName,
+        destination: destination,
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.roleName} Workspace'),
@@ -51,9 +62,7 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
           IconButton(
             tooltip: 'Notifications',
             onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-            ),
+            icon: const Icon(Icons.notifications_none_rounded),
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -81,15 +90,13 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
                   onDestinationSelected: _selectDestination,
                   labelType: NavigationRailLabelType.all,
                   backgroundColor: AppColors.surface,
-                  destinations: widget.destinations.map(
-                    (item) {
-                      return NavigationRailDestination(
-                        icon: Icon(item.icon),
-                        selectedIcon: Icon(item.selectedIcon),
-                        label: Text(item.label),
-                      );
-                    },
-                  ).toList(),
+                  destinations: widget.destinations.map((item) {
+                    return NavigationRailDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.selectedIcon),
+                      label: Text(item.label),
+                    );
+                  }).toList(),
                 ),
                 const VerticalDivider(),
                 Expanded(child: content),
@@ -101,15 +108,13 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: _selectDestination,
-              destinations: widget.destinations.map(
-                (item) {
-                  return NavigationDestination(
-                    icon: Icon(item.icon),
-                    selectedIcon: Icon(item.selectedIcon),
-                    label: item.label,
-                  );
-                },
-              ).toList(),
+              destinations: widget.destinations.map((item) {
+                return NavigationDestination(
+                  icon: Icon(item.icon),
+                  selectedIcon: Icon(item.selectedIcon),
+                  label: item.label,
+                );
+              }).toList(),
             ),
     );
   }
@@ -125,10 +130,7 @@ class _ModulePlaceholder extends StatelessWidget {
   final String roleName;
   final WorkspaceDestination destination;
 
-  const _ModulePlaceholder({
-    required this.roleName,
-    required this.destination,
-  });
+  const _ModulePlaceholder({required this.roleName, required this.destination});
 
   @override
   Widget build(BuildContext context) {
@@ -142,24 +144,18 @@ class _ModulePlaceholder extends StatelessWidget {
             children: [
               Text(
                 destination.label,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w900,
-                    ),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: AppSpacing.small),
               Text(
                 destination.description,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.5,
-                    ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: AppSpacing.extraLarge),
               Container(
@@ -167,12 +163,8 @@ class _ModulePlaceholder extends StatelessWidget {
                 padding: const EdgeInsets.all(AppSpacing.extraLarge),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.large,
-                  ),
-                  border: Border.all(
-                    color: AppColors.border,
-                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.large),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   children: [
@@ -181,9 +173,7 @@ class _ModulePlaceholder extends StatelessWidget {
                       height: 72,
                       decoration: BoxDecoration(
                         color: AppColors.informationBackground,
-                        borderRadius: BorderRadius.circular(
-                          AppRadius.large,
-                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.large),
                       ),
                       child: Icon(
                         destination.selectedIcon,
