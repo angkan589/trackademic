@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/features/ui_preview/presentation/role_preview_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -78,10 +81,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         height: 72,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF3454D1),
-                              Color(0xFF6D5CE7),
-                            ],
+                            colors: [Color(0xFF3454D1), Color(0xFF6D5CE7)],
                           ),
                           borderRadius: BorderRadius.circular(22),
                         ),
@@ -123,15 +123,11 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [
-                        AutofillHints.email,
-                      ],
+                      autofillHints: const [AutofillHints.email],
                       decoration: InputDecoration(
                         labelText: 'Email address',
                         hintText: 'name@example.com',
-                        prefixIcon: const Icon(
-                          Icons.email_outlined,
-                        ),
+                        prefixIcon: const Icon(Icons.email_outlined),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -159,17 +155,13 @@ class _SignInScreenState extends State<SignInScreen> {
                       controller: _passwordController,
                       obscureText: _hidePassword,
                       textInputAction: TextInputAction.done,
-                      autofillHints: const [
-                        AutofillHints.password,
-                      ],
+                      autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) {
                         _submitForm();
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        prefixIcon: const Icon(
-                          Icons.lock_outline_rounded,
-                        ),
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
                           tooltip: _hidePassword
                               ? 'Show password'
@@ -242,9 +234,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFEAF0FF),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFD5DFFF),
-                        ),
+                        border: Border.all(color: const Color(0xFFD5DFFF)),
                       ),
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,6 +257,20 @@ class _SignInScreenState extends State<SignInScreen> {
                         ],
                       ),
                     ),
+                    if (kDebugMode) const SizedBox(height: AppSpacing.regular),
+
+                    if (kDebugMode)
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => const RolePreviewScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.science_outlined),
+                        label: const Text('Open UI development preview'),
+                      ),
                   ],
                 ),
               ),
