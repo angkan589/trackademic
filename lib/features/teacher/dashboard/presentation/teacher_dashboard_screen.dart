@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 
 class TeacherDashboardScreen extends StatelessWidget {
   const TeacherDashboardScreen({super.key});
@@ -56,9 +57,18 @@ class TeacherDashboardScreen extends StatelessWidget {
         ),
         FilledButton.icon(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Create-attendance UI will be added soon.'),
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) {
+                  return const Scaffold(
+                    backgroundColor: AppColors.background,
+                    body: SafeArea(
+                      child: TeacherCreateAttendanceScreen(
+                        showBackButton: true,
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },

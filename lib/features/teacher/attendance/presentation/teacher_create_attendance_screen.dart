@@ -4,7 +4,9 @@ import 'package:trackademic/core/theme/app_dimensions.dart';
 import 'package:trackademic/features/teacher/attendance/presentation/teacher_live_attendance_screen.dart';
 
 class TeacherCreateAttendanceScreen extends StatefulWidget {
-  const TeacherCreateAttendanceScreen({super.key});
+  final bool showBackButton;
+
+  const TeacherCreateAttendanceScreen({this.showBackButton = false, super.key});
 
   @override
   State<TeacherCreateAttendanceScreen> createState() =>
@@ -97,21 +99,38 @@ class _TeacherCreateAttendanceScreenState
   }
 
   Widget _buildHeader() {
-    return const Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Create Attendance',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
+        if (widget.showBackButton) ...[
+          IconButton(
+            tooltip: 'Back',
+            onPressed: () {
+              Navigator.of(context).maybePop();
+            },
+            icon: const Icon(Icons.arrow_back_rounded),
           ),
-        ),
-        SizedBox(height: AppSpacing.small),
-        Text(
-          'Start a secure GPS and passcode-based attendance session.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+          const SizedBox(width: AppSpacing.small),
+        ],
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Create Attendance',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: AppSpacing.small),
+              Text(
+                'Start a secure GPS and passcode-based attendance session.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              ),
+            ],
+          ),
         ),
       ],
     );

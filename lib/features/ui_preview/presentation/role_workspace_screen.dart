@@ -4,6 +4,8 @@ import 'package:trackademic/core/theme/app_dimensions.dart';
 import 'package:trackademic/features/teacher/dashboard/presentation/teacher_dashboard_screen.dart';
 import 'package:trackademic/features/teacher/schedule/presentation/teacher_schedule_screen.dart';
 import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
+import 'package:trackademic/features/teacher/courses/presentation/teacher_courses_screen.dart';
+import 'package:trackademic/features/teacher/marks/presentation/teacher_marks_screen.dart';
 
 class WorkspaceDestination {
   final String label;
@@ -46,9 +48,13 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
     if (widget.roleName == 'Teacher' && _selectedIndex == 0) {
       content = const TeacherDashboardScreen();
     } else if (widget.roleName == 'Teacher' && _selectedIndex == 1) {
-      content = const TeacherScheduleScreen();
-    } else if (widget.roleName == 'Teacher' && _selectedIndex == 2) {
       content = const TeacherCreateAttendanceScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 2) {
+      content = const TeacherCoursesScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 3) {
+      content = const TeacherMarksScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 4) {
+      content = const TeacherScheduleScreen();
     } else {
       content = _ModulePlaceholder(
         roleName: widget.roleName,
