@@ -15,7 +15,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen> {
   bool _showWeekView = false;
   int _selectedDay = 4;
 
-  static const _days = ['Sunday','Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+  static const _days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 
   static const _classes = [
     _ScheduleEntry(

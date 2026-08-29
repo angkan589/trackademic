@@ -41,7 +41,7 @@ class TeacherDashboardScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Welcome back, Dr. Rahman',
+              'Welcome back, Prof Dr. Kaushik Deb',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 28,

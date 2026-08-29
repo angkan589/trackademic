@@ -65,21 +65,36 @@ class _TeacherAddClassScreenState extends State<TeacherAddClassScreen> {
   }
 
   Widget _buildHeader() {
-    return const Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Add Class',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-          ),
+        IconButton(
+          tooltip: 'Back to schedule',
+          onPressed: () {
+            Navigator.of(context).maybePop();
+          },
+          icon: const Icon(Icons.arrow_back_rounded),
         ),
-        SizedBox(height: AppSpacing.small),
-        Text(
-          'Add an extra, makeup, or manually scheduled class.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+        const SizedBox(width: AppSpacing.small),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Add Class',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: AppSpacing.small),
+              Text(
+                'Add an extra, makeup, or manually scheduled class.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -87,23 +102,20 @@ class _TeacherAddClassScreenState extends State<TeacherAddClassScreen> {
 
   Widget _buildInformationBanner() {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.regular),
       decoration: BoxDecoration(
-        color: AppColors.informationBackground,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.medium),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.primary),
-          SizedBox(width: AppSpacing.medium),
-          Expanded(
+          const Icon(Icons.info_outline_rounded, color: AppColors.warning),
+          const SizedBox(width: AppSpacing.small),
+          const Expanded(
             child: Text(
-              'This class will be marked as Manual. Official timetable '
-              'classes are assigned by the schedule coordinator.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
+              'This class will be shown in the schedule overview and can be adjusted manually if needed.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           ),
         ],
