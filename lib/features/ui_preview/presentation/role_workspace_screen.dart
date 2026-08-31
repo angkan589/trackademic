@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
-import 'package:trackademic/features/teacher/dashboard/presentation/teacher_dashboard_screen.dart';
-import 'package:trackademic/features/teacher/schedule/presentation/teacher_schedule_screen.dart';
+import 'package:trackademic/features/student/attendance/presentation/student_attendance_screen.dart';
+import 'package:trackademic/features/student/dashboard/presentation/student_dashboard_screen.dart';
 import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 import 'package:trackademic/features/teacher/courses/presentation/teacher_courses_screen.dart';
+import 'package:trackademic/features/teacher/dashboard/presentation/teacher_dashboard_screen.dart';
 import 'package:trackademic/features/teacher/marks/presentation/teacher_marks_screen.dart';
+import 'package:trackademic/features/teacher/schedule/presentation/teacher_schedule_screen.dart';
+import 'package:trackademic/features/student/marks/presentation/student_marks_screen.dart';
+import 'package:trackademic/features/student/schedule/presentation/student_schedule_screen.dart';
+import 'package:trackademic/features/student/profile/presentation/student_profile_screen.dart';
 
 class WorkspaceDestination {
   final String label;
@@ -55,12 +60,33 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
       content = const TeacherMarksScreen();
     } else if (widget.roleName == 'Teacher' && _selectedIndex == 4) {
       content = const TeacherScheduleScreen();
+    } else if (widget.roleName == 'Student' && _selectedIndex == 0) {
+      content = StudentDashboardScreen(
+        onOpenAttendance: () {
+          _selectDestination(1);
+        },
+        onOpenMarks: () {
+          _selectDestination(2);
+        },
+        onOpenSchedule: () {
+          _selectDestination(3);
+        },
+      );
+    } else if (widget.roleName == 'Student' && _selectedIndex == 1) {
+      content = const StudentAttendanceScreen();
+    } else if (widget.roleName == 'Student' && _selectedIndex == 2) {
+      content = const StudentMarksScreen();
+    } else if (widget.roleName == 'Student' && _selectedIndex == 3) {
+      content = const StudentScheduleScreen();
+    } else if (widget.roleName == 'Student' && _selectedIndex == 4) {
+      content = const StudentProfileScreen();
     } else {
       content = _ModulePlaceholder(
         roleName: widget.roleName,
         destination: destination,
       );
     }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.roleName} Workspace'),
@@ -74,7 +100,11 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
             padding: const EdgeInsets.only(right: 12),
             child: IconButton(
               tooltip: 'Profile',
-              onPressed: () {},
+              onPressed: () {
+                if (widget.roleName == 'Student') {
+                  _selectDestination(4);
+                }
+              },
               icon: const CircleAvatar(
                 radius: 17,
                 backgroundColor: AppColors.informationBackground,
