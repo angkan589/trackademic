@@ -1,0 +1,285 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function profileExists() {
+      return isSignedIn() &&
+          exists(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          );
+    }
+
+    function isActiveUser() {
+      return profileExists() &&
+          get(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.isActive == true;
+    }
+
+    function hasRole(role) {
+      return isActiveUser() &&
+          get(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isCourseTeacher(courseId) {
+      return hasRole('teacher') &&
+          exists(
+            /databases/$(database)/documents/courses/$(courseId)
+          ) &&
+          get(
+            /databases/$(database)/documents/courses/$(courseId)
+          ).data.teacherId == request.auth.uid;
+    }
+
+    function isCourseStudent(courseId) {
+      return hasRole('student') &&
+          exists(
+            /databases/$(database)/documents/courses/$(courseId)/students/$(request.auth.uid)
+          );
+    }
+
+    function canAccessCourse(courseId) {
+      return isAdmin() ||
+          isCourseTeacher(courseId) ||
+          isCourseStudent(courseId);
+    }
+
+    // User profiles are created by Cloud Functions.
+    match /users/{userId} {
+      allow get: if isActiveUser() &&
+          (isSelf(userId) || isAdmin());
+
+      allow list: if isAdmin();
+
+      allow create, delete: if false;
+
+      allow update: if isSelf(userId) &&
+          isActiveUser() &&
+          request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'displayName',
+                'phone',
+                'photoUrl',
+                'notificationPreferences',
+                'updatedAt'
+              ]) &&
+          request.resource.data.displayName is string &&
+          request.resource.data.displayName.size() >= 2 &&
+          request.resource.data.displayName.size() <= 80 &&
+          request.resource.data.updatedAt == request.time;
+
+      match /deviceTokens/{tokenId} {
+        allow read: if isSelf(userId) && isActiveUser();
+
+        allow create: if isSelf(userId) &&
+            isActiveUser() &&
+            request.resource.data.keys().hasAll([
+              'token',
+              'platform',
+              'createdAt',
+              'updatedAt'
+            ]) &&
+            request.resource.data.keys().hasOnly([
+              'token',
+              'platform',
+              'createdAt',
+              'updatedAt'
+            ]) &&
+            request.resource.data.token is string &&
+            request.resource.data.token.size() > 0 &&
+            request.resource.data.token.size() <= 4096 &&
+            request.resource.data.platform in [
+              'web',
+              'android',
+              'ios',
+              'macos',
+              'windows'
+            ] &&
+            request.resource.data.createdAt == request.time &&
+            request.resource.data.updatedAt == request.time;
+
+        allow update: if isSelf(userId) &&
+            isActiveUser() &&
+            request.resource.data
+                .diff(resource.data)
+                .affectedKeys()
+                .hasOnly([
+                  'token',
+                  'platform',
+                  'updatedAt'
+                ]) &&
+            request.resource.data.token is string &&
+            request.resource.data.token.size() > 0 &&
+            request.resource.data.token.size() <= 4096 &&
+            request.resource.data.platform in [
+              'web',
+              'android',
+              'ios',
+              'macos',
+              'windows'
+            ] &&
+            request.resource.data.updatedAt == request.time;
+
+        allow delete: if isSelf(userId) && isActiveUser();
+      }
+    }
+
+    // Course metadata is visible to authenticated active users.
+    // Course creation and changes go through Cloud Functions.
+    match /courses/{courseId} {
+      allow read: if isActiveUser();
+      allow write: if false;
+
+      match /students/{studentId} {
+        allow get: if isAdmin() ||
+            isCourseTeacher(courseId) ||
+            (isSelf(studentId) && isCourseStudent(courseId));
+
+        allow list: if isAdmin() || isCourseTeacher(courseId);
+        allow write: if false;
+      }
+    }
+
+    match /semesters/{semesterId} {
+      allow read: if isActiveUser();
+      allow write: if false;
+    }
+
+    // Public attendance-session information only.
+    // Passcodes and GPS configuration will be stored separately.
+    match /attendanceSessions/{sessionId} {
+      allow read: if canAccessCourse(resource.data.courseId);
+      allow write: if false;
+
+      match /private/{privateDocument} {
+        allow read, write: if false;
+      }
+    }
+
+    match /attendanceRecords/{recordId} {
+      allow read: if isAdmin() ||
+          isCourseTeacher(resource.data.courseId) ||
+          (
+            isCourseStudent(resource.data.courseId) &&
+            resource.data.studentId == request.auth.uid
+          );
+
+      allow write: if false;
+    }
+
+    match /attendanceSummaries/{summaryId} {
+      allow read: if isAdmin() ||
+          isCourseTeacher(resource.data.courseId) ||
+          (
+            isCourseStudent(resource.data.courseId) &&
+            resource.data.studentId == request.auth.uid
+          );
+
+      allow write: if false;
+    }
+
+    match /assessments/{assessmentId} {
+      allow read: if isAdmin() ||
+          isCourseTeacher(resource.data.courseId) ||
+          (
+            resource.data.status == 'published' &&
+            isCourseStudent(resource.data.courseId)
+          );
+
+      allow write: if false;
+    }
+
+    match /marks/{markId} {
+      allow read: if isAdmin() ||
+          isCourseTeacher(resource.data.courseId) ||
+          (
+            resource.data.published == true &&
+            resource.data.studentId == request.auth.uid &&
+            isCourseStudent(resource.data.courseId)
+          );
+
+      allow write: if false;
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if canAccessCourse(resource.data.courseId);
+      allow write: if false;
+    }
+
+    match /academicRecords/{recordId} {
+      allow read: if isAdmin() ||
+          isCourseTeacher(resource.data.courseId) ||
+          (
+            resource.data.published == true &&
+            resource.data.studentId == request.auth.uid &&
+            isCourseStudent(resource.data.courseId)
+          );
+
+      allow write: if false;
+    }
+
+    match /notifications/{userId}/items/{notificationId} {
+      allow read: if isSelf(userId) && isActiveUser();
+
+      allow update: if isSelf(userId) &&
+          isActiveUser() &&
+          request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly(['isRead', 'readAt']) &&
+          request.resource.data.isRead is bool &&
+          (
+            (
+              request.resource.data.isRead == true &&
+              request.resource.data.readAt == request.time
+            ) ||
+            (
+              request.resource.data.isRead == false &&
+              request.resource.data.readAt == null
+            )
+          );
+
+      allow create, delete: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin() ||
+          (
+            hasRole('teacher') &&
+            resource.data.actorId == request.auth.uid
+          );
+
+      allow write: if false;
+    }
+
+    match /registrationInvites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    match /publicConfig/{documentId} {
+      allow read: if isActiveUser();
+      allow write: if false;
+    }
+
+    // Deny access to every collection not explicitly defined above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

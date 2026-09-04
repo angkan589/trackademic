@@ -1,1 +1,20 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"trackademic-0","configurations":{"web":"1:664949220313:web:78405ad6e41393b5eeefc8"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "trackademic-0",
+          "configurations": {
+            "web": "1:664949220313:web:78405ad6e41393b5eeefc8"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "asia-south1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
