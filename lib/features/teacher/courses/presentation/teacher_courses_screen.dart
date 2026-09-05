@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
-import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 
 class TeacherCoursesScreen extends StatefulWidget {
   const TeacherCoursesScreen({super.key});
@@ -11,98 +11,18 @@ class TeacherCoursesScreen extends StatefulWidget {
 }
 
 class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
+  static const _service = TeacherAcademicService();
+
   final _searchController = TextEditingController();
 
+  late Future<List<TeacherCourse>> _coursesFuture;
+
   String _searchQuery = '';
-  String _selectedBatch = 'All';
 
-  static const List<_CourseData> _courses = [
-    _CourseData(
-      code: 'CSE 315',
-      name: 'Software Engineering',
-      batch: '22 Batch',
-      section: 'A',
-      students: 47,
-      completedSessions: 18,
-      attendanceAverage: 88,
-      room: 'Room 204',
-      schedule: 'Sunday & Tuesday · 10:00 AM',
-      roster: [
-        _StudentData(id: '2204001', name: 'Afsana Rahman', attendance: 94),
-        _StudentData(id: '2204002', name: 'Tanvir Hasan', attendance: 89),
-        _StudentData(id: '2204003', name: 'Nabila Islam', attendance: 91),
-        _StudentData(id: '2204004', name: 'Mehedi Chowdhury', attendance: 76),
-      ],
-    ),
-    _CourseData(
-      code: 'CSE 321',
-      name: 'Computer Architecture',
-      batch: '22 Batch',
-      section: 'A',
-      students: 46,
-      completedSessions: 16,
-      attendanceAverage: 84,
-      room: 'Room 302',
-      schedule: 'Monday & Thursday · 11:30 AM',
-      roster: [
-        _StudentData(id: '2204005', name: 'Nusrat Jahan', attendance: 93),
-        _StudentData(id: '2204006', name: 'Sadman Sakib', attendance: 87),
-        _StudentData(id: '2204007', name: 'Farhan Ahmed', attendance: 79),
-        _StudentData(id: '2204008', name: 'Rafia Karim', attendance: 90),
-      ],
-    ),
-    _CourseData(
-      code: 'CSE 333',
-      name: 'Computer Networks',
-      batch: '23 Batch',
-      section: 'B',
-      students: 52,
-      completedSessions: 14,
-      attendanceAverage: 81,
-      room: 'Network Lab',
-      schedule: 'Wednesday & Thursday · 2:00 PM',
-      roster: [
-        _StudentData(id: '2304051', name: 'Maliha Ahmed', attendance: 88),
-        _StudentData(id: '2304052', name: 'Raiyan Chowdhury', attendance: 82),
-        _StudentData(id: '2304053', name: 'Sanjida Karim', attendance: 75),
-        _StudentData(id: '2304054', name: 'Arif Hossain', attendance: 85),
-      ],
-    ),
-  ];
-
-  List<_CourseData> get _visibleCourses {
-    final query = _searchQuery.trim().toLowerCase();
-
-    return _courses.where((course) {
-      final matchesBatch =
-          _selectedBatch == 'All' || course.batch == _selectedBatch;
-
-      final matchesSearch =
-          query.isEmpty ||
-          course.code.toLowerCase().contains(query) ||
-          course.name.toLowerCase().contains(query) ||
-          course.batch.toLowerCase().contains(query) ||
-          course.section.toLowerCase().contains(query);
-
-      return matchesBatch && matchesSearch;
-    }).toList();
-  }
-
-  int get _totalStudents {
-    return _courses.fold(0, (total, course) => total + course.students);
-  }
-
-  double get _averageAttendance {
-    if (_courses.isEmpty) {
-      return 0;
-    }
-
-    final total = _courses.fold<double>(
-      0,
-      (sum, course) => sum + course.attendanceAverage,
-    );
-
-    return total / _courses.length;
+  @override
+  void initState() {
+    super.initState();
+    _coursesFuture = _service.loadMyCourses();
   }
 
   @override
@@ -113,226 +33,73 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: AppSpacing.large),
-              _buildInformationBanner(),
-              const SizedBox(height: AppSpacing.large),
-              _buildSummaryCards(),
-              const SizedBox(height: AppSpacing.large),
-              _buildCourseSection(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'My Courses',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        SizedBox(height: AppSpacing.small),
-        Text(
-          'View assigned courses and enrolled student information.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInformationBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.regular),
-      decoration: BoxDecoration(
-        color: AppColors.informationBackground,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.verified_user_outlined, color: AppColors.primary),
-          SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Text(
-              'Only courses assigned to the signed-in teacher are shown. '
-              'Course and enrollment data currently use mock information.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCards() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double cardWidth;
-
-        if (constraints.maxWidth >= 800) {
-          cardWidth = (constraints.maxWidth - AppSpacing.regular * 2) / 3;
-        } else if (constraints.maxWidth >= 520) {
-          cardWidth = (constraints.maxWidth - AppSpacing.regular) / 2;
-        } else {
-          cardWidth = constraints.maxWidth;
-        }
-
-        return Wrap(
-          spacing: AppSpacing.regular,
-          runSpacing: AppSpacing.regular,
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Assigned courses',
-                value: '${_courses.length}',
-                icon: Icons.menu_book_rounded,
-                iconColor: AppColors.primary,
-                iconBackground: AppColors.informationBackground,
+    return FutureBuilder<List<TeacherCourse>>(
+      future: _coursesFuture,
+      builder: (context, snapshot) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.large),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: AppSpacing.large),
+                  _buildSearchField(),
+                  const SizedBox(height: AppSpacing.large),
+                  if (snapshot.connectionState != ConnectionState.done)
+                    const _LoadingCard()
+                  else if (snapshot.hasError)
+                    _ErrorCard(
+                      message: snapshot.error.toString(),
+                      onRetry: _reload,
+                    )
+                  else
+                    _buildCourseContent(snapshot.data ?? const []),
+                ],
               ),
             ),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Enrolled students',
-                value: '$_totalStudents',
-                icon: Icons.groups_rounded,
-                iconColor: AppColors.success,
-                iconBackground: AppColors.successBackground,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                label: 'Average attendance',
-                value: '${_averageAttendance.toStringAsFixed(0)}%',
-                icon: Icons.trending_up_rounded,
-                iconColor: AppColors.warning,
-                iconBackground: AppColors.warningBackground,
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildCourseSection() {
-    final visibleCourses = _visibleCourses;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.large),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Course list',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.extraSmall),
-          Text(
-            '${visibleCourses.length} matching courses',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.large),
-          _buildControls(),
-          const SizedBox(height: AppSpacing.large),
-          if (visibleCourses.isEmpty)
-            _buildEmptyState()
-          else
-            _buildCourseGrid(visibleCourses),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildControls() {
+  Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final searchField = TextField(
-          controller: _searchController,
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-            });
-          },
-          decoration: InputDecoration(
-            hintText: 'Search by course, batch, or section',
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: _searchQuery.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Clear search',
-                    onPressed: () {
-                      _searchController.clear();
-
-                      setState(() {
-                        _searchQuery = '';
-                      });
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-          ),
-        );
-
-        final filters = Wrap(
-          spacing: AppSpacing.small,
-          runSpacing: AppSpacing.small,
-          children: [
-            for (final batch in ['All', '22 Batch', '23 Batch'])
-              ChoiceChip(
-                label: Text(batch),
-                selected: _selectedBatch == batch,
-                onSelected: (selected) {
-                  if (!selected) {
-                    return;
-                  }
-
-                  setState(() {
-                    _selectedBatch = batch;
-                  });
-                },
+        final title = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'Courses',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
               ),
+            ),
+            SizedBox(height: AppSpacing.small),
+            Text(
+              'Create courses and enroll registered students.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+            ),
           ],
         );
 
-        if (constraints.maxWidth >= 720) {
+        final button = FilledButton.icon(
+          onPressed: _showCreateCourseDialog,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Create course'),
+        );
+
+        if (constraints.maxWidth >= 620) {
           return Row(
             children: [
-              Expanded(child: searchField),
-              const SizedBox(width: AppSpacing.regular),
-              filters,
+              Expanded(child: title),
+              const SizedBox(width: AppSpacing.large),
+              button,
             ],
           );
         }
@@ -340,317 +107,122 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            searchField,
-            const SizedBox(height: AppSpacing.medium),
-            filters,
+            title,
+            const SizedBox(height: AppSpacing.regular),
+            SizedBox(width: double.infinity, child: button),
           ],
         );
       },
     );
   }
 
-  Widget _buildCourseGrid(List<_CourseData> courses) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double cardWidth;
-
-        if (constraints.maxWidth >= 760) {
-          cardWidth = (constraints.maxWidth - AppSpacing.regular) / 2;
-        } else {
-          cardWidth = constraints.maxWidth;
-        }
-
-        return Wrap(
-          spacing: AppSpacing.regular,
-          runSpacing: AppSpacing.regular,
-          children: [
-            for (final course in courses)
-              SizedBox(
-                width: cardWidth,
-                child: _CourseCard(
-                  course: course,
-                  onViewCourse: () {
-                    _showCourseDetails(course);
-                  },
-                ),
-              ),
-          ],
-        );
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value.trim().toLowerCase();
+        });
       },
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.extraLarge),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.search_rounded),
+        hintText: 'Search by course code, name, batch, section...',
       ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.search_off_rounded,
-            color: AppColors.textTertiary,
-            size: 48,
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          const Text(
-            'No matching courses',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.small),
-          const Text(
-            'Try another search or batch filter.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          TextButton(
-            onPressed: () {
-              _searchController.clear();
+    );
+  }
 
-              setState(() {
-                _searchQuery = '';
-                _selectedBatch = 'All';
-              });
+  Widget _buildCourseContent(List<TeacherCourse> courses) {
+    final visibleCourses = courses.where((course) {
+      if (_searchQuery.isEmpty) {
+        return true;
+      }
+
+      final values = [
+        course.code,
+        course.name,
+        course.department ?? '',
+        course.batch ?? '',
+        course.section ?? '',
+        course.semester ?? '',
+        course.room ?? '',
+      ].join(' ').toLowerCase();
+
+      return values.contains(_searchQuery);
+    }).toList();
+
+    if (courses.isEmpty) {
+      return const _EmptyCoursesCard();
+    }
+
+    if (visibleCourses.isEmpty) {
+      return const _MessageCard(
+        icon: Icons.search_off_rounded,
+        message: 'No courses match your search.',
+      );
+    }
+
+    return Column(
+      children: [
+        for (final course in visibleCourses) ...[
+          _CourseCard(
+            course: course,
+            onManageStudents: () {
+              _showStudentsDialog(course);
             },
-            child: const Text('Reset filters'),
           ),
+          const SizedBox(height: AppSpacing.regular),
         ],
-      ),
+      ],
     );
   }
 
-  Future<void> _showCourseDetails(_CourseData course) async {
+  Future<void> _showCreateCourseDialog() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return const _CreateCourseDialog();
+      },
+    );
+
+    if (created == true) {
+      _reload();
+    }
+  }
+
+  Future<void> _showStudentsDialog(TeacherCourse course) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.informationBackground,
-                  borderRadius: BorderRadius.circular(AppRadius.medium),
-                ),
-                child: const Icon(
-                  Icons.menu_book_rounded,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.medium),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(course.code),
-                    Text(
-                      course.name,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _DetailRow(
-                    icon: Icons.groups_outlined,
-                    label: 'Batch and section',
-                    value: '${course.batch} · Section ${course.section}',
-                  ),
-                  const SizedBox(height: AppSpacing.medium),
-                  _DetailRow(
-                    icon: Icons.location_on_outlined,
-                    label: 'Classroom',
-                    value: course.room,
-                  ),
-                  const SizedBox(height: AppSpacing.medium),
-                  _DetailRow(
-                    icon: Icons.schedule_rounded,
-                    label: 'Regular schedule',
-                    value: course.schedule,
-                  ),
-                  const SizedBox(height: AppSpacing.medium),
-                  _DetailRow(
-                    icon: Icons.fact_check_outlined,
-                    label: 'Attendance average',
-                    value: '${course.attendanceAverage.toStringAsFixed(0)}%',
-                  ),
-                  const SizedBox(height: AppSpacing.large),
-                  const Divider(),
-                  const SizedBox(height: AppSpacing.large),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Enrolled students',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        'Showing ${course.roster.length} of '
-                        '${course.students}',
-                        style: const TextStyle(
-                          color: AppColors.textTertiary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.medium),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(AppRadius.medium),
-                    ),
-                    child: Column(
-                      children: [
-                        for (
-                          int index = 0;
-                          index < course.roster.length;
-                          index++
-                        ) ...[
-                          _StudentRow(student: course.roster[index]),
-                          if (index < course.roster.length - 1) const Divider(),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Close'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) {
-                      return const Scaffold(
-                        backgroundColor: AppColors.background,
-                        body: SafeArea(
-                          child: TeacherCreateAttendanceScreen(
-                            showBackButton: true,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-              icon: const Icon(Icons.how_to_reg_rounded),
-              label: const Text('Create attendance'),
-            ),
-          ],
-        );
+      builder: (context) {
+        return _CourseStudentsDialog(course: course);
       },
     );
   }
-}
 
-class _SummaryCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.regular),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: iconBackground,
-              borderRadius: BorderRadius.circular(AppRadius.medium),
-            ),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  void _reload() {
+    setState(() {
+      _coursesFuture = _service.loadMyCourses();
+    });
   }
 }
 
 class _CourseCard extends StatelessWidget {
-  final _CourseData course;
-  final VoidCallback onViewCourse;
+  final TeacherCourse course;
+  final VoidCallback onManageStudents;
 
-  const _CourseCard({required this.course, required this.onViewCourse});
+  const _CourseCard({required this.course, required this.onManageStudents});
 
   @override
   Widget build(BuildContext context) {
+    final details = <String>[
+      if (course.department != null) course.department!,
+      if (course.batch != null) course.batch!,
+      if (course.section != null) course.section!,
+      if (course.semester != null) course.semester!,
+    ];
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.regular),
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
@@ -663,8 +235,8 @@ class _CourseCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: AppColors.informationBackground,
                   borderRadius: BorderRadius.circular(AppRadius.medium),
@@ -674,7 +246,7 @@ class _CourseCard extends StatelessWidget {
                   color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: AppSpacing.medium),
+              const SizedBox(width: AppSpacing.regular),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -683,7 +255,7 @@ class _CourseCard extends StatelessWidget {
                       course.code,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 18,
+                        fontSize: 19,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -695,310 +267,525 @@ class _CourseCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.small,
-                  vertical: AppSpacing.extraSmall,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.successBackground,
-                  borderRadius: BorderRadius.circular(AppRadius.circular),
-                ),
-                child: const Text(
-                  'Active',
-                  style: TextStyle(
-                    color: AppColors.success,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.regular),
-          _CourseInformation(
-            icon: Icons.groups_rounded,
-            text: '${course.batch} · Section ${course.section}',
-          ),
-          const SizedBox(height: AppSpacing.small),
-          _CourseInformation(
-            icon: Icons.location_on_outlined,
-            text: course.room,
-          ),
-          const SizedBox(height: AppSpacing.small),
-          _CourseInformation(
-            icon: Icons.schedule_rounded,
-            text: course.schedule,
-          ),
-          const SizedBox(height: AppSpacing.regular),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.medium),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(AppRadius.medium),
-            ),
-            child: Column(
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.regular),
+            Wrap(
+              spacing: AppSpacing.small,
+              runSpacing: AppSpacing.small,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MiniMetric(
-                        label: 'Students',
-                        value: '${course.students}',
-                      ),
-                    ),
-                    Container(width: 1, height: 35, color: AppColors.border),
-                    Expanded(
-                      child: _MiniMetric(
-                        label: 'Sessions',
-                        value: '${course.completedSessions}',
-                      ),
-                    ),
-                    Container(width: 1, height: 35, color: AppColors.border),
-                    Expanded(
-                      child: _MiniMetric(
-                        label: 'Attendance',
-                        value:
-                            '${course.attendanceAverage.toStringAsFixed(0)}%',
-                      ),
-                    ),
-                  ],
+                for (final detail in details) _DetailChip(text: detail),
+              ],
+            ),
+          ],
+          if (course.room != null) ...[
+            const SizedBox(height: AppSpacing.regular),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: AppColors.textTertiary,
+                ),
+                const SizedBox(width: AppSpacing.small),
+                Text(
+                  course.room!,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: AppSpacing.large),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: onManageStudents,
+              icon: const Icon(Icons.group_rounded),
+              label: const Text('Manage students'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateCourseDialog extends StatefulWidget {
+  const _CreateCourseDialog();
+
+  @override
+  State<_CreateCourseDialog> createState() => _CreateCourseDialogState();
+}
+
+class _CreateCourseDialogState extends State<_CreateCourseDialog> {
+  static const _service = TeacherAcademicService();
+
+  final _formKey = GlobalKey<FormState>();
+
+  final _codeController = TextEditingController();
+
+  final _nameController = TextEditingController();
+
+  final _departmentController = TextEditingController();
+
+  final _batchController = TextEditingController();
+
+  final _sectionController = TextEditingController();
+
+  final _semesterController = TextEditingController();
+
+  final _roomController = TextEditingController();
+
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _nameController.dispose();
+    _departmentController.dispose();
+    _batchController.dispose();
+    _sectionController.dispose();
+    _semesterController.dispose();
+    _roomController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Create course'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _codeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Course code *',
+                    hintText: 'CSE 315',
+                  ),
+                  validator: _required,
                 ),
                 const SizedBox(height: AppSpacing.medium),
-                LinearProgressIndicator(
-                  value: course.attendanceAverage / 100,
-                  minHeight: 7,
-                  color: AppColors.primary,
-                  backgroundColor: AppColors.border,
-                  borderRadius: BorderRadius.circular(AppRadius.circular),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Course name *'),
+                  validator: _required,
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _departmentController,
+                  decoration: const InputDecoration(labelText: 'Department'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _batchController,
+                  decoration: const InputDecoration(labelText: 'Batch'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _sectionController,
+                  decoration: const InputDecoration(labelText: 'Section'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _semesterController,
+                  decoration: const InputDecoration(labelText: 'Semester'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _roomController,
+                  decoration: const InputDecoration(labelText: 'Room'),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.regular),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onViewCourse,
-              icon: const Icon(Icons.arrow_forward_rounded),
-              label: const Text('View course'),
-            ),
-          ),
-        ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _submitting
+              ? null
+              : () {
+                  Navigator.pop(context, false);
+                },
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
+        ),
+      ],
     );
+  }
+
+  String? _required(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Required';
+    }
+
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      await _service.createCourse(
+        code: _codeController.text,
+        name: _nameController.text,
+        department: _optional(_departmentController.text),
+        batch: _optional(_batchController.text),
+        section: _optional(_sectionController.text),
+        semester: _optional(_semesterController.text),
+        room: _optional(_roomController.text),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context, true);
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
+  }
+
+  String? _optional(String value) {
+    final trimmed = value.trim();
+
+    return trimmed.isEmpty ? null : trimmed;
   }
 }
 
-class _CourseInformation extends StatelessWidget {
-  final IconData icon;
+class _CourseStudentsDialog extends StatefulWidget {
+  final TeacherCourse course;
+
+  const _CourseStudentsDialog({required this.course});
+
+  @override
+  State<_CourseStudentsDialog> createState() => _CourseStudentsDialogState();
+}
+
+class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
+  static const _service = TeacherAcademicService();
+
+  final _institutionIdController = TextEditingController();
+
+  late Future<List<EnrolledStudent>> _studentsFuture;
+
+  bool _enrolling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _studentsFuture = _service.loadCourseStudents(widget.course.id);
+  }
+
+  @override
+  void dispose() {
+    _institutionIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('${widget.course.code} students'),
+      content: SizedBox(
+        width: 600,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _institutionIdController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Student institution ID',
+                      hintText: 'Enter a registered student ID',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.medium),
+                FilledButton.icon(
+                  onPressed: _enrolling ? null : _enroll,
+                  icon: const Icon(Icons.person_add_rounded),
+                  label: const Text('Enroll'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.large),
+            Flexible(
+              child: FutureBuilder<List<EnrolledStudent>>(
+                future: _studentsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.all(AppSpacing.extraLarge),
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Text(
+                      snapshot.error.toString(),
+                      style: const TextStyle(color: AppColors.danger),
+                    );
+                  }
+
+                  final students = snapshot.data ?? const [];
+
+                  if (students.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(AppSpacing.large),
+                      child: Text(
+                        'No students are enrolled in this course yet.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: students.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final student = students[index];
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person_rounded),
+                        ),
+                        title: Text(student.displayName),
+                        subtitle: Text(
+                          '${student.institutionId} · ${student.email}',
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _enroll() async {
+    final institutionId = _institutionIdController.text.trim();
+
+    if (institutionId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a student institution ID.')),
+      );
+
+      return;
+    }
+
+    setState(() {
+      _enrolling = true;
+    });
+
+    try {
+      await _service.enrollStudent(
+        courseId: widget.course.id,
+        institutionId: institutionId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _institutionIdController.clear();
+
+      setState(() {
+        _studentsFuture = _service.loadCourseStudents(widget.course.id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student enrolled successfully.')),
+      );
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _enrolling = false;
+        });
+      }
+    }
+  }
+}
+
+class _DetailChip extends StatelessWidget {
   final String text;
 
-  const _CourseInformation({required this.icon, required this.text});
+  const _DetailChip({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppColors.textTertiary),
-        const SizedBox(width: AppSpacing.small),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.medium,
+        vertical: AppSpacing.extraSmall,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.informationBackground,
+        borderRadius: BorderRadius.circular(AppRadius.circular),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
         ),
-      ],
+      ),
     );
   }
 }
 
-class _MiniMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _MiniMetric({required this.label, required this.value});
+class _EmptyCoursesCard extends StatelessWidget {
+  const _EmptyCoursesCard();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.extraSmall),
-        Text(
-          label,
-          style: const TextStyle(color: AppColors.textTertiary, fontSize: 11),
-        ),
-      ],
+    return const _MessageCard(
+      icon: Icons.menu_book_outlined,
+      message:
+          'You have not created any courses yet. Create your first course to begin.',
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
+class _MessageCard extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String value;
+  final String message;
 
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _MessageCard({required this.icon, required this.message});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.informationBackground,
-            borderRadius: BorderRadius.circular(AppRadius.small),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
-        ),
-        const SizedBox(width: AppSpacing.medium),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textTertiary,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.extraSmall),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StudentRow extends StatelessWidget {
-  final _StudentData student;
-
-  const _StudentRow({required this.student});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.medium),
-      child: Row(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.extraLarge),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
         children: [
-          CircleAvatar(
-            backgroundColor: AppColors.informationBackground,
-            child: Text(
-              _initials(student.name),
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  student.name,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  'ID: ${student.id}',
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          Icon(icon, size: 48, color: AppColors.textTertiary),
+          const SizedBox(height: AppSpacing.medium),
           Text(
-            '${student.attendance.toStringAsFixed(0)}%',
-            style: TextStyle(
-              color: student.attendance >= 75
-                  ? AppColors.success
-                  : AppColors.danger,
-              fontWeight: FontWeight.w900,
-            ),
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),
     );
   }
+}
 
-  String _initials(String name) {
-    final parts = name
-        .trim()
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .take(2);
+class _LoadingCard extends StatelessWidget {
+  const _LoadingCard();
 
-    return parts.map((part) => part[0].toUpperCase()).join();
+  @override
+  Widget build(BuildContext context) {
+    return const _MessageCard(
+      icon: Icons.hourglass_top_rounded,
+      message: 'Loading your courses...',
+    );
   }
 }
 
-class _CourseData {
-  final String code;
-  final String name;
-  final String batch;
-  final String section;
-  final int students;
-  final int completedSessions;
-  final double attendanceAverage;
-  final String room;
-  final String schedule;
-  final List<_StudentData> roster;
+class _ErrorCard extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
 
-  const _CourseData({
-    required this.code,
-    required this.name,
-    required this.batch,
-    required this.section,
-    required this.students,
-    required this.completedSessions,
-    required this.attendanceAverage,
-    required this.room,
-    required this.schedule,
-    required this.roster,
-  });
-}
+  const _ErrorCard({required this.message, required this.onRetry});
 
-class _StudentData {
-  final String id;
-  final String name;
-  final double attendance;
-
-  const _StudentData({
-    required this.id,
-    required this.name,
-    required this.attendance,
-  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.large),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.danger,
+            size: 44,
+          ),
+          const SizedBox(height: AppSpacing.medium),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.medium),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
 }
