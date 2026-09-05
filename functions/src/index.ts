@@ -23,6 +23,31 @@ type RegistrationData = {
   password?: unknown;
 };
 
+type CreateCourseData = {
+  code?: unknown;
+  name?: unknown;
+  department?: unknown;
+  batch?: unknown;
+  section?: unknown;
+  semester?: unknown;
+  room?: unknown;
+};
+
+type EnrollStudentData = {
+  courseId?: unknown;
+  institutionId?: unknown;
+};
+
+type CreateScheduleData = {
+  courseId?: unknown;
+  dayIndex?: unknown;
+  day?: unknown;
+  startTime?: unknown;
+  endTime?: unknown;
+  room?: unknown;
+  classType?: unknown;
+};
+
 type UserRole = "student" | "teacher";
 
 function requiredString(
@@ -48,6 +73,34 @@ function requiredString(
   }
 
   return result;
+}
+
+function optionalString(
+  value: unknown,
+  field: string,
+  maximum: number,
+): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} must be text.`,
+    );
+  }
+
+  const result = value.trim();
+
+  if (result.length > maximum) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} is too long.`,
+    );
+  }
+
+  return result.length === 0 ? null : result;
 }
 
 function validateEmail(value: unknown): string {
@@ -101,6 +154,40 @@ function validatePassword(value: unknown): string {
   return value;
 }
 
+function validateTime(value: unknown, field: string): string {
+  const time = requiredString(
+    value,
+    field,
+    5,
+    5,
+  );
+
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${field} must use HH:MM format.`,
+    );
+  }
+
+  return time;
+}
+
+function validateDayIndex(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 0 ||
+    value > 6
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Day index must be between 0 and 6.",
+    );
+  }
+
+  return value;
+}
+
 function validateInvite(
   invite: FirebaseFirestore.DocumentData | undefined,
   email: string,
@@ -148,6 +235,70 @@ function optionalText(value: unknown): string | null {
   return typeof value === "string" ? value.trim() : null;
 }
 
+async function requireActiveTeacher(
+  uid: string,
+): Promise<FirebaseFirestore.DocumentData> {
+  const database = getFirestore();
+
+  const profile = await database
+    .collection("users")
+    .doc(uid)
+    .get();
+
+  const data = profile.data();
+
+  if (
+    !profile.exists ||
+    !data ||
+    data.isActive !== true ||
+    data.role !== "teacher"
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      "An active teacher account is required.",
+    );
+  }
+
+  return data;
+}
+
+async function requireOwnedCourse(
+  teacherId: string,
+  courseId: string,
+): Promise<FirebaseFirestore.DocumentData> {
+  const database = getFirestore();
+
+  const course = await database
+    .collection("courses")
+    .doc(courseId)
+    .get();
+
+  const data = course.data();
+
+  if (!course.exists || !data) {
+    throw new HttpsError(
+      "not-found",
+      "Course not found.",
+    );
+  }
+
+  if (data.teacherId !== teacherId) {
+    throw new HttpsError(
+      "permission-denied",
+      "You do not manage this course.",
+    );
+  }
+
+  if (data.isActive !== true) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This course is inactive.",
+    );
+  }
+
+  return data;
+}
+
 export const registerWithInvite = onCall<RegistrationData>(
   {
     timeoutSeconds: 30,
@@ -169,18 +320,27 @@ export const registerWithInvite = onCall<RegistrationData>(
     );
 
     const email = validateEmail(request.data.email);
+
     const institutionId = validateInstitutionId(
       request.data.institutionId,
     );
-    const password = validatePassword(request.data.password);
+
+    const password = validatePassword(
+      request.data.password,
+    );
 
     const database = getFirestore();
+
     const inviteReference = database
       .collection("registrationInvites")
       .doc(institutionId);
 
     const initialInvite = await inviteReference.get();
-    const role = validateInvite(initialInvite.data(), email);
+
+    const role = validateInvite(
+      initialInvite.data(),
+      email,
+    );
 
     let createdUserId: string | null = null;
 
@@ -200,72 +360,87 @@ export const registerWithInvite = onCall<RegistrationData>(
         institutionId,
       });
 
-      await database.runTransaction(async (transaction) => {
-        const currentInvite = await transaction.get(
-          inviteReference,
-        );
-
-        const inviteData = currentInvite.data();
-        const currentRole = validateInvite(inviteData, email);
-
-        if (!inviteData || currentRole !== role) {
-          throw new HttpsError(
-            "aborted",
-            "The invitation changed. Please try again.",
+      await database.runTransaction(
+        async (transaction) => {
+          const currentInvite = await transaction.get(
+            inviteReference,
           );
-        }
 
-        const timestamp = FieldValue.serverTimestamp();
+          const inviteData = currentInvite.data();
 
-        const userReference = database
-          .collection("users")
-          .doc(user.uid);
+          const currentRole = validateInvite(
+            inviteData,
+            email,
+          );
 
-        const auditReference = database
-          .collection("auditLogs")
-          .doc();
+          if (!inviteData || currentRole !== role) {
+            throw new HttpsError(
+              "aborted",
+              "The invitation changed. Please try again.",
+            );
+          }
 
-        transaction.create(userReference, {
-          uid: user.uid,
-          displayName,
-          email,
-          institutionId,
-          role,
-          isActive: true,
-          emailVerified: false,
-          phone: null,
-          photoUrl: null,
-          department: optionalText(inviteData.department),
-          batch: optionalText(inviteData.batch),
-          section: optionalText(inviteData.section),
-          semester: optionalText(inviteData.semester),
-          notificationPreferences: {
-            attendance: true,
-            marks: true,
-            schedule: true,
-          },
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        });
+          const timestamp =
+            FieldValue.serverTimestamp();
 
-        transaction.update(inviteReference, {
-          isActive: false,
-          usedBy: user.uid,
-          usedAt: timestamp,
-          updatedAt: timestamp,
-        });
+          const userReference = database
+            .collection("users")
+            .doc(user.uid);
 
-        transaction.create(auditReference, {
-          action: "user.registered",
-          actorId: user.uid,
-          actorRole: role,
-          targetId: user.uid,
-          metadata: {
+          const auditReference = database
+            .collection("auditLogs")
+            .doc();
+
+          transaction.create(userReference, {
+            uid: user.uid,
+            displayName,
+            email,
             institutionId,
-          },
-          createdAt: timestamp,
-        });
-      });
+            role,
+            isActive: true,
+            emailVerified: false,
+            phone: null,
+            photoUrl: null,
+            department: optionalText(
+              inviteData.department,
+            ),
+            batch: optionalText(
+              inviteData.batch,
+            ),
+            section: optionalText(
+              inviteData.section,
+            ),
+            semester: optionalText(
+              inviteData.semester,
+            ),
+            notificationPreferences: {
+              attendance: true,
+              marks: true,
+              schedule: true,
+            },
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+
+          transaction.update(inviteReference, {
+            isActive: false,
+            usedBy: user.uid,
+            usedAt: timestamp,
+            updatedAt: timestamp,
+          });
+
+          transaction.create(auditReference, {
+            action: "user.registered",
+            actorId: user.uid,
+            actorRole: role,
+            targetId: user.uid,
+            metadata: {
+              institutionId,
+            },
+            createdAt: timestamp,
+          });
+        },
+      );
 
       return {
         uid: user.uid,
@@ -274,7 +449,9 @@ export const registerWithInvite = onCall<RegistrationData>(
     } catch (error) {
       if (createdUserId != null) {
         try {
-          await getAuth().deleteUser(createdUserId);
+          await getAuth().deleteUser(
+            createdUserId,
+          );
         } catch (rollbackError) {
           logger.error(
             "Registration rollback failed.",
@@ -301,12 +478,434 @@ export const registerWithInvite = onCall<RegistrationData>(
         );
       }
 
-      logger.error("Registration failed.", error);
+      logger.error(
+        "Registration failed.",
+        error,
+      );
 
       throw new HttpsError(
         "internal",
         "Registration failed. Please try again.",
       );
     }
+  },
+);
+
+export const createCourse = onCall<CreateCourseData>(
+  {
+    timeoutSeconds: 30,
+    maxInstances: 10,
+  },
+  async (request) => {
+    const teacherId = request.auth?.uid;
+
+    if (!teacherId) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before creating a course.",
+      );
+    }
+
+    const teacher = await requireActiveTeacher(
+      teacherId,
+    );
+
+    const code = requiredString(
+      request.data.code,
+      "Course code",
+      2,
+      30,
+    ).toUpperCase();
+
+    const name = requiredString(
+      request.data.name,
+      "Course name",
+      2,
+      120,
+    );
+
+    const department = optionalString(
+      request.data.department,
+      "Department",
+      120,
+    );
+
+    const batch = optionalString(
+      request.data.batch,
+      "Batch",
+      80,
+    );
+
+    const section = optionalString(
+      request.data.section,
+      "Section",
+      80,
+    );
+
+    const semester = optionalString(
+      request.data.semester,
+      "Semester",
+      80,
+    );
+
+    const room = optionalString(
+      request.data.room,
+      "Room",
+      80,
+    );
+
+    const database = getFirestore();
+
+    const duplicate = await database
+      .collection("courses")
+      .where(
+        "teacherId",
+        "==",
+        teacherId,
+      )
+      .where(
+        "code",
+        "==",
+        code,
+      )
+      .limit(1)
+      .get();
+
+    if (!duplicate.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "You already have a course with this code.",
+      );
+    }
+
+    const courseReference = database
+      .collection("courses")
+      .doc();
+
+    const auditReference = database
+      .collection("auditLogs")
+      .doc();
+
+    const timestamp =
+      FieldValue.serverTimestamp();
+
+    const teacherName =
+      typeof teacher.displayName === "string" ?
+        teacher.displayName :
+        "";
+
+    const batchWrite = database.batch();
+
+    batchWrite.create(courseReference, {
+      code,
+      name,
+      teacherId,
+      teacherName,
+      department,
+      batch,
+      section,
+      semester,
+      room,
+      isActive: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    batchWrite.create(auditReference, {
+      action: "course.created",
+      actorId: teacherId,
+      actorRole: "teacher",
+      targetId: courseReference.id,
+      metadata: {
+        code,
+        name,
+      },
+      createdAt: timestamp,
+    });
+
+    await batchWrite.commit();
+
+    return {
+      courseId: courseReference.id,
+    };
+  },
+);
+
+export const enrollStudent = onCall<EnrollStudentData>(
+  {
+    timeoutSeconds: 30,
+    maxInstances: 10,
+  },
+  async (request) => {
+    const teacherId = request.auth?.uid;
+
+    if (!teacherId) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before enrolling a student.",
+      );
+    }
+
+    await requireActiveTeacher(
+      teacherId,
+    );
+
+    const courseId = requiredString(
+      request.data.courseId,
+      "Course ID",
+      1,
+      128,
+    );
+
+    const institutionId = validateInstitutionId(
+      request.data.institutionId,
+    );
+
+    const course = await requireOwnedCourse(
+      teacherId,
+      courseId,
+    );
+
+    const database = getFirestore();
+
+    const students = await database
+      .collection("users")
+      .where(
+        "institutionId",
+        "==",
+        institutionId,
+      )
+      .where(
+        "role",
+        "==",
+        "student",
+      )
+      .limit(1)
+      .get();
+
+    if (students.empty) {
+      throw new HttpsError(
+        "not-found",
+        "No registered student was found with this institution ID.",
+      );
+    }
+
+    const studentDocument = students.docs[0];
+
+    const student = studentDocument.data();
+
+    if (student.isActive !== true) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This student account is inactive.",
+      );
+    }
+
+    const enrollmentReference = database
+      .collection("courses")
+      .doc(courseId)
+      .collection("students")
+      .doc(studentDocument.id);
+
+    const auditReference = database
+      .collection("auditLogs")
+      .doc();
+
+    const timestamp =
+      FieldValue.serverTimestamp();
+
+    const batchWrite = database.batch();
+
+    batchWrite.set(
+      enrollmentReference,
+      {
+        studentId: studentDocument.id,
+        institutionId,
+        displayName:
+          typeof student.displayName === "string" ?
+            student.displayName :
+            "",
+        email:
+          typeof student.email === "string" ?
+            student.email :
+            "",
+        isActive: true,
+        enrolledAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        merge: true,
+      },
+    );
+
+    batchWrite.set(
+      studentDocument.ref,
+      {
+        courseIds: FieldValue.arrayUnion(
+          courseId,
+        ),
+        updatedAt: timestamp,
+      },
+      {
+        merge: true,
+      },
+    );
+
+    batchWrite.create(auditReference, {
+      action: "course.student_enrolled",
+      actorId: teacherId,
+      actorRole: "teacher",
+      targetId: studentDocument.id,
+      metadata: {
+        courseId,
+        courseCode: course.code,
+        institutionId,
+      },
+      createdAt: timestamp,
+    });
+
+    await batchWrite.commit();
+
+    return {
+      studentId: studentDocument.id,
+      institutionId,
+    };
+  },
+);
+
+export const createSchedule = onCall<CreateScheduleData>(
+  {
+    timeoutSeconds: 30,
+    maxInstances: 10,
+  },
+  async (request) => {
+    const teacherId = request.auth?.uid;
+
+    if (!teacherId) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Sign in before creating a schedule.",
+      );
+    }
+
+    const teacher = await requireActiveTeacher(
+      teacherId,
+    );
+
+    const courseId = requiredString(
+      request.data.courseId,
+      "Course ID",
+      1,
+      128,
+    );
+
+    const course = await requireOwnedCourse(
+      teacherId,
+      courseId,
+    );
+
+    const dayIndex = validateDayIndex(
+      request.data.dayIndex,
+    );
+
+    const day = requiredString(
+      request.data.day,
+      "Day",
+      3,
+      20,
+    );
+
+    const startTime = validateTime(
+      request.data.startTime,
+      "Start time",
+    );
+
+    const endTime = validateTime(
+      request.data.endTime,
+      "End time",
+    );
+
+    if (endTime <= startTime) {
+      throw new HttpsError(
+        "invalid-argument",
+        "End time must be after start time.",
+      );
+    }
+
+    const room = requiredString(
+      request.data.room,
+      "Room",
+      1,
+      80,
+    );
+
+    const classType = requiredString(
+      request.data.classType,
+      "Class type",
+      2,
+      40,
+    );
+
+    const database = getFirestore();
+
+    const scheduleReference = database
+      .collection("schedules")
+      .doc();
+
+    const auditReference = database
+      .collection("auditLogs")
+      .doc();
+
+    const timestamp =
+      FieldValue.serverTimestamp();
+
+    const teacherName =
+      typeof teacher.displayName === "string" ?
+        teacher.displayName :
+        "";
+
+    const batchWrite = database.batch();
+
+    batchWrite.create(scheduleReference, {
+      courseId,
+      courseCode:
+        typeof course.code === "string" ?
+          course.code :
+          "",
+      courseName:
+        typeof course.name === "string" ?
+          course.name :
+          "",
+      teacherId,
+      teacherName,
+      dayIndex,
+      day,
+      startTime,
+      endTime,
+      room,
+      classType,
+      status: "scheduled",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    batchWrite.create(auditReference, {
+      action: "schedule.created",
+      actorId: teacherId,
+      actorRole: "teacher",
+      targetId: scheduleReference.id,
+      metadata: {
+        courseId,
+        day,
+        startTime,
+      },
+      createdAt: timestamp,
+    });
+
+    await batchWrite.commit();
+
+    return {
+      scheduleId: scheduleReference.id,
+    };
   },
 );

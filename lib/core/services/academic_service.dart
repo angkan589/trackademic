@@ -21,6 +21,7 @@ class AcademicService {
     final uid = _currentUserId;
 
     final document = await _database.collection('users').doc(uid).get();
+
     final data = document.data();
 
     if (data == null) {
@@ -35,16 +36,77 @@ class AcademicService {
       return const [];
     }
 
-    return rawCourseIds
+    final courseIds = rawCourseIds
         .whereType<String>()
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
+        .map((courseId) => courseId.trim())
+        .where((courseId) => courseId.isNotEmpty)
+        .toSet()
         .toList();
+
+    return courseIds;
   }
 
   Future<List<AcademicCourse>> loadCurrentCourses() async {
     final courseIds = await loadCurrentCourseIds();
 
+    return _loadCourses(courseIds);
+  }
+
+  Future<List<StudentAttendanceSummary>> loadAttendanceSummaries() async {
+    final courseIds = await loadCurrentCourseIds();
+
+    return _loadAttendanceSummaries(courseIds);
+  }
+
+  Future<List<StudentMarkRecord>> loadPublishedMarks() async {
+    final courseIds = await loadCurrentCourseIds();
+
+    return _loadPublishedMarks(courseIds);
+  }
+
+  Future<List<ClassScheduleEntry>> loadCurrentSchedules() async {
+    final courseIds = await loadCurrentCourseIds();
+
+    return _loadSchedules(courseIds);
+  }
+
+  Future<List<AttendanceSessionInfo>> loadActiveAttendanceSessions() async {
+    final courseIds = await loadCurrentCourseIds();
+
+    return _loadActiveAttendanceSessions(courseIds);
+  }
+
+  Future<StudentAcademicOverview> loadStudentOverview() async {
+    final courseIds = await loadCurrentCourseIds();
+
+    if (courseIds.isEmpty) {
+      return const StudentAcademicOverview(
+        courses: [],
+        attendance: [],
+        marks: [],
+        schedules: [],
+        activeSessions: [],
+      );
+    }
+
+    final results = await Future.wait<Object>([
+      _loadCourses(courseIds),
+      _loadAttendanceSummaries(courseIds),
+      _loadPublishedMarks(courseIds),
+      _loadSchedules(courseIds),
+      _loadActiveAttendanceSessions(courseIds),
+    ]);
+
+    return StudentAcademicOverview(
+      courses: results[0] as List<AcademicCourse>,
+      attendance: results[1] as List<StudentAttendanceSummary>,
+      marks: results[2] as List<StudentMarkRecord>,
+      schedules: results[3] as List<ClassScheduleEntry>,
+      activeSessions: results[4] as List<AttendanceSessionInfo>,
+    );
+  }
+
+  Future<List<AcademicCourse>> _loadCourses(List<String> courseIds) async {
     if (courseIds.isEmpty) {
       return const [];
     }
@@ -64,57 +126,90 @@ class AcademicService {
         continue;
       }
 
-      courses.add(AcademicCourse.fromMap(document.id, data));
+      final course = AcademicCourse.fromMap(document.id, data);
+
+      if (!course.isActive) {
+        continue;
+      }
+
+      courses.add(course);
     }
 
-    courses.sort((a, b) => a.code.compareTo(b.code));
+    courses.sort((first, second) => first.code.compareTo(second.code));
 
     return courses;
   }
 
-  Future<List<StudentAttendanceSummary>> loadAttendanceSummaries() async {
+  Future<List<StudentAttendanceSummary>> _loadAttendanceSummaries(
+    List<String> courseIds,
+  ) async {
+    if (courseIds.isEmpty) {
+      return const [];
+    }
+
     final uid = _currentUserId;
+    final summaries = <StudentAttendanceSummary>[];
 
-    final snapshot = await _database
-        .collection('attendanceSummaries')
-        .where('studentId', isEqualTo: uid)
-        .get();
+    for (final courseId in courseIds) {
+      final snapshot = await _database
+          .collection('attendanceSummaries')
+          .where('courseId', isEqualTo: courseId)
+          .where('studentId', isEqualTo: uid)
+          .get();
 
-    final summaries = snapshot.docs
-        .map(
-          (document) =>
-              StudentAttendanceSummary.fromMap(document.id, document.data()),
-        )
-        .toList();
+      for (final document in snapshot.docs) {
+        summaries.add(
+          StudentAttendanceSummary.fromMap(document.id, document.data()),
+        );
+      }
+    }
 
-    summaries.sort((a, b) => a.courseCode.compareTo(b.courseCode));
+    summaries.sort(
+      (first, second) => first.courseCode.compareTo(second.courseCode),
+    );
 
     return summaries;
   }
 
-  Future<List<StudentMarkRecord>> loadPublishedMarks() async {
+  Future<List<StudentMarkRecord>> _loadPublishedMarks(
+    List<String> courseIds,
+  ) async {
+    if (courseIds.isEmpty) {
+      return const [];
+    }
+
     final uid = _currentUserId;
+    final marks = <StudentMarkRecord>[];
 
-    final snapshot = await _database
-        .collection('marks')
-        .where('studentId', isEqualTo: uid)
-        .where('published', isEqualTo: true)
-        .get();
+    for (final courseId in courseIds) {
+      final snapshot = await _database
+          .collection('marks')
+          .where('courseId', isEqualTo: courseId)
+          .where('studentId', isEqualTo: uid)
+          .where('published', isEqualTo: true)
+          .get();
 
-    final marks = snapshot.docs
-        .map(
-          (document) => StudentMarkRecord.fromMap(document.id, document.data()),
-        )
-        .toList();
+      for (final document in snapshot.docs) {
+        marks.add(StudentMarkRecord.fromMap(document.id, document.data()));
+      }
+    }
 
-    marks.sort((a, b) => a.courseCode.compareTo(b.courseCode));
+    marks.sort((first, second) {
+      final courseComparison = first.courseCode.compareTo(second.courseCode);
+
+      if (courseComparison != 0) {
+        return courseComparison;
+      }
+
+      return first.assessmentName.compareTo(second.assessmentName);
+    });
 
     return marks;
   }
 
-  Future<List<ClassScheduleEntry>> loadCurrentSchedules() async {
-    final courseIds = await loadCurrentCourseIds();
-
+  Future<List<ClassScheduleEntry>> _loadSchedules(
+    List<String> courseIds,
+  ) async {
     if (courseIds.isEmpty) {
       return const [];
     }
@@ -127,30 +222,27 @@ class AcademicService {
           .where('courseId', isEqualTo: courseId)
           .get();
 
-      schedules.addAll(
-        snapshot.docs.map(
-          (document) =>
-              ClassScheduleEntry.fromMap(document.id, document.data()),
-        ),
-      );
+      for (final document in snapshot.docs) {
+        schedules.add(ClassScheduleEntry.fromMap(document.id, document.data()));
+      }
     }
 
-    schedules.sort((a, b) {
-      final dayComparison = a.dayIndex.compareTo(b.dayIndex);
+    schedules.sort((first, second) {
+      final dayComparison = first.dayIndex.compareTo(second.dayIndex);
 
       if (dayComparison != 0) {
         return dayComparison;
       }
 
-      return a.startTime.compareTo(b.startTime);
+      return first.startTime.compareTo(second.startTime);
     });
 
     return schedules;
   }
 
-  Future<List<AttendanceSessionInfo>> loadActiveAttendanceSessions() async {
-    final courseIds = await loadCurrentCourseIds();
-
+  Future<List<AttendanceSessionInfo>> _loadActiveAttendanceSessions(
+    List<String> courseIds,
+  ) async {
     if (courseIds.isEmpty) {
       return const [];
     }
@@ -169,31 +261,31 @@ class AcademicService {
           document.data(),
         );
 
-        if (session.status == 'active') {
-          sessions.add(session);
+        if (session.status != 'active') {
+          continue;
         }
+
+        final endsAt = session.endsAt;
+
+        if (endsAt != null && endsAt.isBefore(DateTime.now())) {
+          continue;
+        }
+
+        sessions.add(session);
       }
     }
 
+    sessions.sort((first, second) {
+      final firstTime =
+          first.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      final secondTime =
+          second.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      return secondTime.compareTo(firstTime);
+    });
+
     return sessions;
-  }
-
-  Future<StudentAcademicOverview> loadStudentOverview() async {
-    final results = await Future.wait([
-      loadCurrentCourses(),
-      loadAttendanceSummaries(),
-      loadPublishedMarks(),
-      loadCurrentSchedules(),
-      loadActiveAttendanceSessions(),
-    ]);
-
-    return StudentAcademicOverview(
-      courses: results[0] as List<AcademicCourse>,
-      attendance: results[1] as List<StudentAttendanceSummary>,
-      marks: results[2] as List<StudentMarkRecord>,
-      schedules: results[3] as List<ClassScheduleEntry>,
-      activeSessions: results[4] as List<AttendanceSessionInfo>,
-    );
   }
 }
 
@@ -213,11 +305,17 @@ class StudentAcademicOverview {
   });
 
   int get totalClasses {
-    return attendance.fold(0, (total, item) => total + item.total);
+    return attendance.fold<int>(
+      0,
+      (totalValue, item) => totalValue + item.total,
+    );
   }
 
   int get attendedClasses {
-    return attendance.fold(0, (total, item) => total + item.attended);
+    return attendance.fold<int>(
+      0,
+      (totalValue, item) => totalValue + item.attended,
+    );
   }
 
   double get overallAttendance {
@@ -242,10 +340,6 @@ class StudentAcademicOverview {
   }
 
   double get averageCtPercentage {
-    if (marks.isEmpty) {
-      return 0;
-    }
-
     final validMarks = marks.where((item) => item.maxScore > 0).toList();
 
     if (validMarks.isEmpty) {
