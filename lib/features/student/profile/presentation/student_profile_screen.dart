@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/auth_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
 
@@ -10,13 +11,40 @@ class StudentProfileScreen extends StatefulWidget {
 }
 
 class _StudentProfileScreenState extends State<StudentProfileScreen> {
-  bool _attendanceReminders = true;
-  bool _marksAlerts = true;
-  bool _scheduleAlerts = true;
-  bool _basicProfileVisible = false;
+  static const _authService = AuthService();
+
+  late Future<AppUserProfile> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = _authService.loadCurrentProfile();
+  }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<AppUserProfile>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _ProfileLoadError(
+            message:
+                snapshot.error?.toString() ??
+                'Your profile could not be loaded.',
+            onRetry: _retry,
+          );
+        }
+
+        return _buildProfile(snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildProfile(AppUserProfile profile) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.large),
       child: Center(
@@ -25,17 +53,31 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              const Text(
+                'Profile',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.small),
+              const Text(
+                'Your account and academic information from Trackademic.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              ),
               const SizedBox(height: AppSpacing.large),
-              const _ProfileSummaryCard(),
+              _ProfileSummaryCard(profile: profile),
               const SizedBox(height: AppSpacing.large),
-              _buildInformationSection(),
+              _buildInformationSection(profile),
               const SizedBox(height: AppSpacing.large),
-              _buildPrivacyCard(),
+              const _PrivacyCard(),
               const SizedBox(height: AppSpacing.large),
-              _buildNotificationCard(),
-              const SizedBox(height: AppSpacing.large),
-              _buildAccountSecurityCard(),
+              _AccountSecurityCard(
+                profile: profile,
+                onChangePassword: () => _sendPasswordReset(profile.email),
+                onSignOut: _showSignOutDialog,
+              ),
             ],
           ),
         ),
@@ -43,283 +85,121 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInformationSection(AppUserProfile profile) {
+    final personal = _SectionCard(
+      title: 'Personal information',
+      subtitle: 'Information stored in your Trackademic account.',
+      icon: Icons.person_outline_rounded,
       children: [
-        Text(
-          'Profile',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-          ),
+        _InformationRow(
+          icon: Icons.badge_outlined,
+          label: 'Full name',
+          value: _valueOrNotProvided(profile.displayName),
         ),
-        SizedBox(height: AppSpacing.small),
-        Text(
-          'Review your personal information and '
-          'academic privacy settings.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.email_outlined,
+          label: 'Email',
+          value: _valueOrNotProvided(profile.email),
         ),
       ],
     );
-  }
 
-  Widget _buildInformationSection() {
+    final academic = _SectionCard(
+      title: 'Academic information',
+      subtitle: 'Information assigned to your student account.',
+      icon: Icons.school_outlined,
+      children: [
+        _InformationRow(
+          icon: Icons.numbers_rounded,
+          label: 'Institution ID',
+          value: _valueOrNotProvided(profile.institutionId),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.apartment_rounded,
+          label: 'Department',
+          value: _valueOrNotProvided(profile.department),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.groups_rounded,
+          label: 'Batch',
+          value: _valueOrNotProvided(profile.batch),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.group_outlined,
+          label: 'Section',
+          value: _valueOrNotProvided(profile.section),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.calendar_today_outlined,
+          label: 'Semester',
+          value: _valueOrNotProvided(profile.semester),
+        ),
+      ],
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 820) {
-          return const Row(
+          return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _PersonalInformationCard()),
-              SizedBox(width: AppSpacing.regular),
-              Expanded(child: _AcademicInformationCard()),
+              Expanded(child: personal),
+              const SizedBox(width: AppSpacing.regular),
+              Expanded(child: academic),
             ],
           );
         }
 
-        return const Column(
+        return Column(
           children: [
-            _PersonalInformationCard(),
-            SizedBox(height: AppSpacing.regular),
-            _AcademicInformationCard(),
+            personal,
+            const SizedBox(height: AppSpacing.regular),
+            academic,
           ],
         );
       },
     );
   }
 
-  Widget _buildPrivacyCard() {
-    return _SectionCard(
-      title: 'Privacy and record access',
-      subtitle: 'Control profile visibility and review protected data access.',
-      icon: Icons.privacy_tip_outlined,
-      children: [
-        const _ProtectedRecordTile(
-          icon: Icons.fact_check_outlined,
-          title: 'Attendance records',
-          access: 'Only you and authorized teachers',
-        ),
-        const Divider(),
-        const _ProtectedRecordTile(
-          icon: Icons.analytics_outlined,
-          title: 'Marks and results',
-          access: 'Only you and authorized course teachers',
-        ),
-        const Divider(),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(Icons.badge_outlined, color: AppColors.primary),
-          title: const Text(
-            'Basic profile visibility',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: const Text(
-            'Allow classmates to see only your name, '
-            'student ID, and section.',
-          ),
-          value: _basicProfileVisible,
-          onChanged: (value) {
-            setState(() {
-              _basicProfileVisible = value;
-            });
-          },
-        ),
-        const Divider(),
-        const _ProtectedRecordTile(
-          icon: Icons.location_on_outlined,
-          title: 'GPS location access',
-          access: 'Used only during active attendance verification',
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.medium),
-          decoration: BoxDecoration(
-            color: AppColors.successBackground,
-            borderRadius: BorderRadius.circular(AppRadius.medium),
-          ),
-          child: const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.verified_user_rounded, color: AppColors.success),
-              SizedBox(width: AppSpacing.small),
-              Expanded(
-                child: Text(
-                  'Other students can never access your '
-                  'attendance or marks, regardless of your '
-                  'basic-profile visibility setting.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  String _valueOrNotProvided(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Not provided';
+    }
+
+    return value.trim();
   }
 
-  Widget _buildNotificationCard() {
-    return _SectionCard(
-      title: 'Notifications',
-      subtitle: 'Choose which academic updates you want to receive.',
-      icon: Icons.notifications_none_rounded,
-      children: [
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(
-            Icons.how_to_reg_outlined,
-            color: AppColors.primary,
-          ),
-          title: const Text(
-            'Attendance reminders',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: const Text(
-            'Receive an alert when a teacher starts attendance.',
-          ),
-          value: _attendanceReminders,
-          onChanged: (value) {
-            setState(() {
-              _attendanceReminders = value;
-            });
-          },
-        ),
-        const Divider(),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(
-            Icons.analytics_outlined,
-            color: AppColors.primary,
-          ),
-          title: const Text(
-            'Marks publication alerts',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: const Text(
-            'Receive an alert when a teacher publishes marks.',
-          ),
-          value: _marksAlerts,
-          onChanged: (value) {
-            setState(() {
-              _marksAlerts = value;
-            });
-          },
-        ),
-        const Divider(),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          secondary: const Icon(
-            Icons.calendar_month_outlined,
-            color: AppColors.primary,
-          ),
-          title: const Text(
-            'Schedule updates',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: const Text(
-            'Receive an alert when a class time '
-            'or room changes.',
-          ),
-          value: _scheduleAlerts,
-          onChanged: (value) {
-            setState(() {
-              _scheduleAlerts = value;
-            });
-          },
-        ),
-      ],
-    );
+  Future<void> _retry() async {
+    setState(() {
+      _profileFuture = _authService.loadCurrentProfile();
+    });
   }
 
-  Widget _buildAccountSecurityCard() {
-    return _SectionCard(
-      title: 'Account security',
-      subtitle: 'Manage password and session security.',
-      icon: Icons.security_rounded,
-      children: [
-        const _SecurityInformation(
-          icon: Icons.email_outlined,
-          label: 'Verified email',
-          value: 'afsana.2204001@cuet.ac.bd',
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        const _SecurityInformation(
-          icon: Icons.login_rounded,
-          label: 'Last sign-in',
-          value: '31 August 2026 · 9:12 AM',
-        ),
-        const SizedBox(height: AppSpacing.large),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final changePasswordButton = OutlinedButton.icon(
-              onPressed: _showChangePasswordDialog,
-              icon: const Icon(Icons.password_rounded),
-              label: const Text('Change password'),
-            );
+  Future<void> _sendPasswordReset(String email) async {
+    try {
+      await _authService.sendPasswordReset(email);
 
-            final signOutButton = FilledButton.icon(
-              onPressed: _showSignOutDialog,
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
-            );
+      if (!mounted) {
+        return;
+      }
 
-            if (constraints.maxWidth >= 520) {
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  changePasswordButton,
-                  const SizedBox(width: AppSpacing.medium),
-                  signOutButton,
-                ],
-              );
-            }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Password reset instructions sent to $email.')),
+      );
+    } on AuthServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
 
-            return Column(
-              children: [
-                SizedBox(width: double.infinity, child: changePasswordButton),
-                const SizedBox(height: AppSpacing.medium),
-                SizedBox(width: double.infinity, child: signOutButton),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Future<void> _showChangePasswordDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          icon: const Icon(
-            Icons.password_rounded,
-            color: AppColors.primary,
-            size: 40,
-          ),
-          title: const Text('Change password'),
-          content: const Text(
-            'A secure password-reset link will be sent '
-            'to your verified institutional email when '
-            'Firebase authentication is connected.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
   Future<void> _showSignOutDialog() async {
@@ -334,8 +214,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           ),
           title: const Text('Sign out?'),
           content: const Text(
-            'Are you sure you want to sign out '
-            'of the Student workspace?',
+            'Are you sure you want to sign out of Trackademic?',
           ),
           actions: [
             TextButton(
@@ -355,26 +234,31 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       },
     );
 
-    if (confirmed != true || !mounted) {
+    if (confirmed != true) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Sign-out will be enabled when Firebase '
-          'authentication is connected.',
-        ),
-      ),
-    );
+    await _authService.signOut();
   }
 }
 
 class _ProfileSummaryCard extends StatelessWidget {
-  const _ProfileSummaryCard();
+  final AppUserProfile profile;
+
+  const _ProfileSummaryCard({required this.profile});
 
   @override
   Widget build(BuildContext context) {
+    final initials = _initials(profile.displayName);
+
+    final labels = <String>[
+      if (profile.department?.trim().isNotEmpty == true)
+        profile.department!.trim(),
+      if (profile.batch?.trim().isNotEmpty == true) profile.batch!.trim(),
+      if (profile.section?.trim().isNotEmpty == true) profile.section!.trim(),
+      if (profile.semester?.trim().isNotEmpty == true) profile.semester!.trim(),
+    ];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.large),
@@ -392,10 +276,10 @@ class _ProfileSummaryCard extends StatelessWidget {
               color: AppColors.informationBackground,
               borderRadius: BorderRadius.circular(AppRadius.large),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                'AR',
-                style: TextStyle(
+                initials,
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 27,
                   fontWeight: FontWeight.w900,
@@ -407,29 +291,35 @@ class _ProfileSummaryCard extends StatelessWidget {
           final information = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Afsana Rahman',
-                style: TextStyle(
+              Text(
+                profile.displayName.trim().isEmpty
+                    ? 'Student'
+                    : profile.displayName,
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: AppSpacing.extraSmall),
-              const Text(
-                'Student ID: 2204001',
-                style: TextStyle(color: AppColors.textSecondary),
+              Text(
+                'Institution ID: ${profile.institutionId}',
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.medium),
-              const Wrap(
-                spacing: AppSpacing.small,
-                runSpacing: AppSpacing.small,
-                children: [
-                  _ProfileLabel(text: 'CSE Department'),
-                  _ProfileLabel(text: '22 Batch'),
-                  _ProfileLabel(text: 'Section A'),
-                ],
-              ),
+              if (labels.isEmpty)
+                const Text(
+                  'Academic details have not been added yet.',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                )
+              else
+                Wrap(
+                  spacing: AppSpacing.small,
+                  runSpacing: AppSpacing.small,
+                  children: [
+                    for (final label in labels) _ProfileLabel(text: label),
+                  ],
+                ),
             ],
           );
 
@@ -439,11 +329,12 @@ class _ProfileSummaryCard extends StatelessWidget {
                 avatar,
                 const SizedBox(width: AppSpacing.large),
                 Expanded(child: information),
-                const Icon(
-                  Icons.verified_rounded,
-                  color: AppColors.success,
-                  size: 30,
-                ),
+                if (_isEmailVerified())
+                  const Icon(
+                    Icons.verified_rounded,
+                    color: AppColors.success,
+                    size: 30,
+                  ),
               ],
             );
           }
@@ -460,97 +351,155 @@ class _ProfileSummaryCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _ProfileLabel extends StatelessWidget {
-  final String text;
+  static String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
 
-  const _ProfileLabel({required this.text});
+    if (parts.isEmpty) {
+      return 'S';
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.medium,
-        vertical: AppSpacing.extraSmall,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.informationBackground,
-        borderRadius: BorderRadius.circular(AppRadius.circular),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+    if (parts.length == 1) {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
+
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  static bool _isEmailVerified() {
+    return const AuthService().currentUser?.emailVerified ?? false;
   }
 }
 
-class _PersonalInformationCard extends StatelessWidget {
-  const _PersonalInformationCard();
+class _PrivacyCard extends StatelessWidget {
+  const _PrivacyCard();
 
   @override
   Widget build(BuildContext context) {
     return const _SectionCard(
-      title: 'Personal information',
-      subtitle: 'Your verified contact details.',
-      icon: Icons.person_outline_rounded,
+      title: 'Privacy and record access',
+      subtitle: 'Your private academic data is protected.',
+      icon: Icons.privacy_tip_outlined,
       children: [
-        _InformationRow(
-          icon: Icons.badge_outlined,
-          label: 'Full name',
-          value: 'Afsana Rahman',
+        _ProtectedRecordTile(
+          icon: Icons.fact_check_outlined,
+          title: 'Attendance records',
+          access: 'Available only to you and authorized teachers',
         ),
-        SizedBox(height: AppSpacing.medium),
+        Divider(),
+        _ProtectedRecordTile(
+          icon: Icons.analytics_outlined,
+          title: 'Marks and results',
+          access: 'Available only to you and authorized course teachers',
+        ),
+        Divider(),
+        _ProtectedRecordTile(
+          icon: Icons.location_on_outlined,
+          title: 'Location',
+          access: 'Used only when attendance verification requires it',
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountSecurityCard extends StatelessWidget {
+  final AppUserProfile profile;
+  final VoidCallback onChangePassword;
+  final VoidCallback onSignOut;
+
+  const _AccountSecurityCard({
+    required this.profile,
+    required this.onChangePassword,
+    required this.onSignOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final user = const AuthService().currentUser;
+
+    final verified = user?.emailVerified == true ? 'Verified' : 'Not verified';
+
+    final lastSignIn = user?.metadata.lastSignInTime;
+
+    return _SectionCard(
+      title: 'Account security',
+      subtitle: 'Firebase Authentication account status.',
+      icon: Icons.security_rounded,
+      children: [
         _InformationRow(
           icon: Icons.email_outlined,
-          label: 'Institutional email',
-          value: 'afsana.2204001@cuet.ac.bd',
+          label: 'Email',
+          value: profile.email,
         ),
-        SizedBox(height: AppSpacing.medium),
+        const SizedBox(height: AppSpacing.medium),
         _InformationRow(
-          icon: Icons.phone_outlined,
-          label: 'Phone number',
-          value: '+880 17XX-XXXXXX',
+          icon: Icons.verified_user_outlined,
+          label: 'Email verification',
+          value: verified,
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.login_rounded,
+          label: 'Last sign-in',
+          value: _formatDateTime(lastSignIn),
+        ),
+        const SizedBox(height: AppSpacing.large),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final resetButton = OutlinedButton.icon(
+              onPressed: onChangePassword,
+              icon: const Icon(Icons.password_rounded),
+              label: const Text('Reset password'),
+            );
+
+            final signOutButton = FilledButton.icon(
+              onPressed: onSignOut,
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Sign out'),
+            );
+
+            if (constraints.maxWidth >= 520) {
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  resetButton,
+                  const SizedBox(width: AppSpacing.medium),
+                  signOutButton,
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                SizedBox(width: double.infinity, child: resetButton),
+                const SizedBox(height: AppSpacing.medium),
+                SizedBox(width: double.infinity, child: signOutButton),
+              ],
+            );
+          },
         ),
       ],
     );
   }
-}
 
-class _AcademicInformationCard extends StatelessWidget {
-  const _AcademicInformationCard();
+  static String _formatDateTime(DateTime? value) {
+    if (value == null) {
+      return 'Not available';
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return const _SectionCard(
-      title: 'Academic information',
-      subtitle: 'Official information assigned by the institution.',
-      icon: Icons.school_outlined,
-      children: [
-        _InformationRow(
-          icon: Icons.numbers_rounded,
-          label: 'Student ID',
-          value: '2204001',
-        ),
-        SizedBox(height: AppSpacing.medium),
-        _InformationRow(
-          icon: Icons.apartment_rounded,
-          label: 'Department',
-          value: 'Computer Science and Engineering',
-        ),
-        SizedBox(height: AppSpacing.medium),
-        _InformationRow(
-          icon: Icons.groups_rounded,
-          label: 'Batch and section',
-          value: '22 Batch · Section A',
-        ),
-      ],
-    );
+    final local = value.toLocal();
+
+    String twoDigits(int number) {
+      return number.toString().padLeft(2, '0');
+    }
+
+    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+        '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
   }
 }
 
@@ -743,52 +692,67 @@ class _ProtectedRecordTile extends StatelessWidget {
   }
 }
 
-class _SecurityInformation extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _ProfileLabel extends StatelessWidget {
+  final String text;
 
-  const _SecurityInformation({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _ProfileLabel({required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.medium),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.medium,
+        vertical: AppSpacing.extraSmall,
       ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 11,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+      decoration: BoxDecoration(
+        color: AppColors.informationBackground,
+        borderRadius: BorderRadius.circular(AppRadius.circular),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileLoadError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ProfileLoadError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.large),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.danger,
+              size: 48,
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.medium),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.large),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }

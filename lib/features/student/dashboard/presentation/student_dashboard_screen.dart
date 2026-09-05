@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/auth_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
 
@@ -14,8 +15,17 @@ class StudentDashboardScreen extends StatelessWidget {
     super.key,
   });
 
+  static const _authService = AuthService();
+
   @override
   Widget build(BuildContext context) {
+    final user = _authService.currentUser;
+
+    final displayName =
+        (user?.displayName != null && user!.displayName!.trim().isNotEmpty)
+        ? user.displayName!.trim()
+        : 'Student';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.large),
       child: Center(
@@ -24,7 +34,7 @@ class StudentDashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(displayName),
               const SizedBox(height: AppSpacing.large),
               const _PrivacyBanner(),
               const SizedBox(height: AppSpacing.large),
@@ -40,20 +50,20 @@ class StudentDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
-    return const Column(
+  Widget _buildHeader(String displayName) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Welcome back, Afsana Rahman',
-          style: TextStyle(
+          'Welcome back, $displayName',
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 28,
             fontWeight: FontWeight.w900,
           ),
         ),
-        SizedBox(height: AppSpacing.small),
-        Text(
+        const SizedBox(height: AppSpacing.small),
+        const Text(
           'Here is your academic overview for today.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
         ),
@@ -82,8 +92,8 @@ class StudentDashboardScreen extends StatelessWidget {
               width: cardWidth,
               child: const _MetricCard(
                 label: 'Overall attendance',
-                value: '88%',
-                detail: '43 of 49 classes',
+                value: '—',
+                detail: 'No attendance records yet',
                 icon: Icons.fact_check_rounded,
                 foreground: AppColors.success,
                 background: AppColors.successBackground,
@@ -93,8 +103,8 @@ class StudentDashboardScreen extends StatelessWidget {
               width: cardWidth,
               child: const _MetricCard(
                 label: 'Attendance marks',
-                value: '9/10',
-                detail: 'Calculated automatically',
+                value: '—',
+                detail: 'No attendance marks yet',
                 icon: Icons.calculate_rounded,
                 foreground: AppColors.primary,
                 background: AppColors.informationBackground,
@@ -104,8 +114,8 @@ class StudentDashboardScreen extends StatelessWidget {
               width: cardWidth,
               child: const _MetricCard(
                 label: 'CT average',
-                value: '16.4/20',
-                detail: 'Across three courses',
+                value: '—',
+                detail: 'No published marks yet',
                 icon: Icons.bar_chart_rounded,
                 foreground: AppColors.warning,
                 background: AppColors.warningBackground,
@@ -115,8 +125,8 @@ class StudentDashboardScreen extends StatelessWidget {
               width: cardWidth,
               child: const _MetricCard(
                 label: 'Today’s classes',
-                value: '3',
-                detail: 'Next class at 10:30 AM',
+                value: '—',
+                detail: 'No schedule data yet',
                 icon: Icons.calendar_month_rounded,
                 foreground: AppColors.secondary,
                 background: AppColors.backgroundSoft,
@@ -325,131 +335,11 @@ class _AttendanceByCourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Attendance by course',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          SizedBox(height: AppSpacing.extraSmall),
-          Text(
-            'Minimum recommended attendance is 75%.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-          ),
-          SizedBox(height: AppSpacing.regular),
-          _AttendanceRow(
-            code: 'CSE 315',
-            name: 'Software Engineering',
-            attended: 16,
-            total: 17,
-            percentage: 94,
-          ),
-          Divider(),
-          _AttendanceRow(
-            code: 'CSE 321',
-            name: 'Computer Architecture',
-            attended: 14,
-            total: 16,
-            percentage: 88,
-          ),
-          Divider(),
-          _AttendanceRow(
-            code: 'CSE 333',
-            name: 'Computer Networks',
-            attended: 13,
-            total: 16,
-            percentage: 81,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AttendanceRow extends StatelessWidget {
-  final String code;
-  final String name;
-  final int attended;
-  final int total;
-  final int percentage;
-
-  const _AttendanceRow({
-    required this.code,
-    required this.name,
-    required this.attended,
-    required this.total,
-    required this.percentage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSafe = percentage >= 75;
-    final progressColor = isSafe ? AppColors.success : AppColors.danger;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.medium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      code,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '$percentage%',
-                style: TextStyle(
-                  color: progressColor,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.small),
-          LinearProgressIndicator(
-            value: percentage / 100,
-            minHeight: 7,
-            color: progressColor,
-            backgroundColor: AppColors.border,
-            borderRadius: BorderRadius.circular(AppRadius.circular),
-          ),
-          const SizedBox(height: AppSpacing.extraSmall),
-          Text(
-            '$attended of $total classes attended',
-            style: const TextStyle(color: AppColors.textTertiary, fontSize: 11),
-          ),
-        ],
-      ),
+    return const _EmptyAcademicCard(
+      title: 'Attendance by course',
+      message:
+          'Your course attendance will appear here after attendance records are created.',
+      icon: Icons.fact_check_outlined,
     );
   }
 }
@@ -459,140 +349,67 @@ class _TodayScheduleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _EmptyAcademicCard(
+      title: 'Today’s schedule',
+      message:
+          'Your classes will appear here after schedule data is added by a teacher.',
+      icon: Icons.calendar_month_outlined,
+    );
+  }
+}
+
+class _EmptyAcademicCard extends StatelessWidget {
+  final String title;
+  final String message;
+  final IconData icon;
+
+  const _EmptyAcademicCard({
+    required this.title,
+    required this.message,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Today’s schedule',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.large),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.extraLarge,
               ),
-              Icon(Icons.calendar_today_rounded, color: AppColors.primary),
-            ],
-          ),
-          SizedBox(height: AppSpacing.regular),
-          _ScheduleRow(
-            time: '9:30 AM',
-            course: 'CSE 315',
-            room: 'Room 401',
-            completed: true,
-          ),
-          Divider(),
-          _ScheduleRow(time: '10:30 AM', course: 'CSE 321', room: 'Room 302'),
-          Divider(),
-          _ScheduleRow(time: '1:30 PM', course: 'CSE 333', room: 'Network Lab'),
-          SizedBox(height: AppSpacing.regular),
-          _ScheduleUpdate(),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScheduleRow extends StatelessWidget {
-  final String time;
-  final String course;
-  final String room;
-  final bool completed;
-
-  const _ScheduleRow({
-    required this.time,
-    required this.course,
-    required this.room,
-    this.completed = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.medium),
-      child: Row(
-        children: [
-          Container(
-            width: 66,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.small),
-            decoration: BoxDecoration(
-              color: completed
-                  ? AppColors.successBackground
-                  : AppColors.informationBackground,
-              borderRadius: BorderRadius.circular(AppRadius.small),
-            ),
-            child: Text(
-              time,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: completed ? AppColors.success : AppColors.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
+              child: Column(
+                children: [
+                  Icon(icon, size: 48, color: AppColors.textTertiary),
+                  const SizedBox(height: AppSpacing.medium),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  course,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  room,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            completed ? Icons.check_circle_rounded : Icons.schedule_rounded,
-            color: completed ? AppColors.success : AppColors.textTertiary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScheduleUpdate extends StatelessWidget {
-  const _ScheduleUpdate();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.medium),
-      decoration: BoxDecoration(
-        color: AppColors.warningBackground,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.update_rounded, color: AppColors.warning),
-          SizedBox(width: AppSpacing.small),
-          Expanded(
-            child: Text(
-              'CSE 333 was recently moved to Network Lab.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ),
         ],
