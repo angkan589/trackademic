@@ -29,16 +29,20 @@ class AuthService {
     required String institutionId,
     required String password,
   }) async {
+    final normalizedEmail = email.trim().toLowerCase();
+
+    final normalizedInstitutionId = institutionId.trim().toUpperCase();
+
     try {
-      await _functions.httpsCallable('registerWithInvite').call({
+      await _functions.httpsCallable('registerUser').call({
         'displayName': displayName.trim(),
-        'email': email.trim().toLowerCase(),
-        'institutionId': institutionId.trim().toUpperCase(),
+        'email': normalizedEmail,
+        'institutionId': normalizedInstitutionId,
         'password': password,
       });
 
       final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password: password,
       );
 
@@ -92,6 +96,7 @@ class AuthService {
     }
 
     final document = await _database.collection('users').doc(user.uid).get();
+
     final data = document.data();
 
     if (!document.exists || data == null) {
@@ -106,12 +111,6 @@ class AuthService {
       await signOut();
 
       throw const AuthServiceException('This account has been disabled.');
-    }
-
-    if (profile.role != 'student' && profile.role != 'teacher') {
-      await signOut();
-
-      throw const AuthServiceException('This account has an invalid role.');
     }
 
     return profile;
@@ -161,18 +160,25 @@ class AuthService {
       case 'user-not-found':
       case 'wrong-password':
         return 'The email or password is incorrect.';
+
       case 'invalid-email':
         return 'Enter a valid email address.';
+
       case 'email-already-in-use':
         return 'An account already exists for this email.';
+
       case 'weak-password':
         return 'Use a stronger password.';
+
       case 'user-disabled':
         return 'This account has been disabled.';
+
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
+
       case 'network-request-failed':
         return 'Check your internet connection and try again.';
+
       default:
         return error.message ?? 'Authentication failed.';
     }
@@ -184,7 +190,13 @@ class AppUserProfile {
   final String displayName;
   final String email;
   final String institutionId;
-  final String role;
+
+  /// Legacy metadata from accounts created before
+  /// course-scoped permissions were introduced.
+  ///
+  /// This value is NOT used for authorization.
+  final String? role;
+
   final bool isActive;
   final String? department;
   final String? batch;
@@ -196,8 +208,8 @@ class AppUserProfile {
     required this.displayName,
     required this.email,
     required this.institutionId,
-    required this.role,
     required this.isActive,
+    this.role,
     this.department,
     this.batch,
     this.section,
@@ -210,7 +222,7 @@ class AppUserProfile {
       displayName: data['displayName'] as String? ?? '',
       email: data['email'] as String? ?? '',
       institutionId: data['institutionId'] as String? ?? '',
-      role: data['role'] as String? ?? '',
+      role: data['role'] as String?,
       isActive: data['isActive'] as bool? ?? false,
       department: data['department'] as String?,
       batch: data['batch'] as String?,

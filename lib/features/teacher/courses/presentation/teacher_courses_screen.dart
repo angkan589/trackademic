@@ -504,11 +504,12 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
   late Future<List<EnrolledStudent>> _studentsFuture;
 
   bool _enrolling = false;
+  String? _removingStudentId;
 
   @override
   void initState() {
     super.initState();
-    _studentsFuture = _service.loadCourseStudents(widget.course.id);
+    _reloadStudents();
   }
 
   @override
@@ -517,14 +518,18 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
     super.dispose();
   }
 
+  void _reloadStudents() {
+    _studentsFuture = _service.loadCourseStudents(widget.course.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text('${widget.course.code} students'),
       content: SizedBox(
-        width: 600,
+        width: 650,
+        height: 460,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -534,7 +539,7 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
                     textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
                       labelText: 'Student institution ID',
-                      hintText: 'Enter a registered student ID',
+                      hintText: 'Enter a registered user ID',
                     ),
                   ),
                 ),
@@ -547,42 +552,43 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
               ],
             ),
             const SizedBox(height: AppSpacing.large),
-            Flexible(
+            Expanded(
               child: FutureBuilder<List<EnrolledStudent>>(
                 future: _studentsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Padding(
-                      padding: EdgeInsets.all(AppSpacing.extraLarge),
-                      child: CircularProgressIndicator(),
-                    );
+                    return const Center(child: CircularProgressIndicator());
                   }
 
                   if (snapshot.hasError) {
-                    return Text(
-                      snapshot.error.toString(),
-                      style: const TextStyle(color: AppColors.danger),
+                    return Center(
+                      child: Text(
+                        snapshot.error.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.danger),
+                      ),
                     );
                   }
 
                   final students = snapshot.data ?? const [];
 
                   if (students.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(AppSpacing.large),
+                    return const Center(
                       child: Text(
                         'No students are enrolled in this course yet.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     );
                   }
 
                   return ListView.separated(
-                    shrinkWrap: true,
                     itemCount: students.length,
-                    separatorBuilder: (context, index) => const Divider(),
+                    separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, index) {
                       final student = students[index];
+
+                      final removing = _removingStudentId == student.uid;
 
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -592,6 +598,25 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
                         title: Text(student.displayName),
                         subtitle: Text(
                           '${student.institutionId} · ${student.email}',
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Remove student',
+                          onPressed: removing
+                              ? null
+                              : () {
+                                  _confirmRemove(student);
+                                },
+                          icon: removing
+                              ? const SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person_remove_outlined,
+                                  color: AppColors.danger,
+                                ),
                         ),
                       );
                     },
@@ -640,9 +665,7 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
 
       _institutionIdController.clear();
 
-      setState(() {
-        _studentsFuture = _service.loadCourseStudents(widget.course.id);
-      });
+      setState(_reloadStudents);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Student enrolled successfully.')),
@@ -659,6 +682,81 @@ class _CourseStudentsDialogState extends State<_CourseStudentsDialog> {
       if (mounted) {
         setState(() {
           _enrolling = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmRemove(EnrolledStudent student) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Remove student?'),
+          content: Text(
+            'Remove ${student.displayName} '
+            '(${student.institutionId}) from '
+            '${widget.course.code}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Remove'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    await _remove(student);
+  }
+
+  Future<void> _remove(EnrolledStudent student) async {
+    setState(() {
+      _removingStudentId = student.uid;
+    });
+
+    try {
+      await _service.unenrollStudent(
+        courseId: widget.course.id,
+        studentId: student.uid,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(_reloadStudents);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${student.displayName} removed from the course.'),
+        ),
+      );
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _removingStudentId = null;
         });
       }
     }

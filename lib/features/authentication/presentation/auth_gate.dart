@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/services/auth_service.dart';
-import 'package:trackademic/features/ui_preview/presentation/role_workspace_screen.dart';
 import 'package:trackademic/features/welcome/presentation/welcome_screen.dart';
+import 'package:trackademic/features/workspace/presentation/account_workspace_screen.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -53,6 +53,7 @@ class _WorkspaceLoaderState extends State<_WorkspaceLoader> {
   @override
   void initState() {
     super.initState();
+
     _profileFuture = _authService.loadCurrentProfile();
   }
 
@@ -69,27 +70,7 @@ class _WorkspaceLoaderState extends State<_WorkspaceLoader> {
           return _ProfileErrorScreen(error: snapshot.error);
         }
 
-        final profile = snapshot.data!;
-
-        if (profile.role == 'teacher') {
-          return RoleWorkspaceScreen(
-            roleName: 'Teacher',
-            destinations: WorkspaceDestinations.teacher,
-            onSignOut: _authService.signOut,
-          );
-        }
-
-        if (profile.role == 'student') {
-          return RoleWorkspaceScreen(
-            roleName: 'Student',
-            destinations: WorkspaceDestinations.student,
-            onSignOut: _authService.signOut,
-          );
-        }
-
-        return const _ProfileErrorScreen(
-          error: 'This account has an unsupported role.',
-        );
+        return AccountWorkspaceScreen(profile: snapshot.data!);
       },
     );
   }

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
@@ -33,7 +35,6 @@ class _TeacherCreateAttendanceScreenState
 
   Future<_AttendancePageData> _load() async {
     final courses = await _service.loadMyCourses();
-
     final sessions = await _service.loadAttendanceSessions();
 
     return _AttendancePageData(courses: courses, sessions: sessions);
@@ -218,10 +219,6 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
 
   final _passcodeController = TextEditingController();
 
-  final _latitudeController = TextEditingController();
-
-  final _longitudeController = TextEditingController();
-
   final _radiusController = TextEditingController(text: '100');
 
   String _classType = 'Theory';
@@ -236,7 +233,6 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
     super.initState();
 
     _courseId = widget.courses.first.id;
-
     _generatePasscode();
   }
 
@@ -250,8 +246,6 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
   void dispose() {
     _durationController.dispose();
     _passcodeController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
     _radiusController.dispose();
     super.dispose();
   }
@@ -312,6 +306,7 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
                   labelText: 'Duration (minutes)',
                 ),
               ),
+              const SizedBox(height: AppSpacing.small),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Require passcode'),
@@ -335,7 +330,7 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Generate',
+                      tooltip: 'Generate passcode',
                       onPressed: _generatePasscode,
                       icon: const Icon(Icons.autorenew_rounded),
                     ),
@@ -344,6 +339,9 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Require GPS verification'),
+                subtitle: const Text(
+                  'Your current device location will be used as the attendance center.',
+                ),
                 value: _requiresGps,
                 onChanged: (value) {
                   setState(() {
@@ -352,29 +350,14 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
                 },
               ),
               if (_requiresGps) ...[
-                TextField(
-                  controller: _latitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Latitude'),
-                ),
-                const SizedBox(height: AppSpacing.medium),
-                TextField(
-                  controller: _longitudeController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Longitude'),
-                ),
-                const SizedBox(height: AppSpacing.medium),
+                const SizedBox(height: AppSpacing.small),
                 TextField(
                   controller: _radiusController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Allowed radius (meters)',
+                    helperText:
+                        'Students must be within this distance from your current location.',
                   ),
                 ),
               ],
@@ -411,31 +394,56 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
     );
   }
 
-  Future<void> _submit() async {
-    final duration = int.tryParse(_durationController.text);
+  Future<Position> _getTeacherPosition() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
-    if (duration == null) {
+    if (!serviceEnabled) {
+      throw const TeacherAcademicServiceException(
+        'Location services are disabled on this device.',
+      );
+    }
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw const TeacherAcademicServiceException(
+        'Location permission is required for GPS attendance.',
+      );
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw const TeacherAcademicServiceException(
+        'Location permission is blocked. Allow location access in your browser or device settings.',
+      );
+    }
+
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
+  }
+
+  Future<void> _submit() async {
+    final duration = int.tryParse(_durationController.text.trim());
+
+    if (duration == null || duration <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid attendance duration.')),
+      );
+
       return;
     }
 
-    final latitude = _requiresGps
-        ? double.tryParse(_latitudeController.text)
-        : null;
-
-    final longitude = _requiresGps
-        ? double.tryParse(_longitudeController.text)
-        : null;
-
     final radius = _requiresGps
-        ? double.tryParse(_radiusController.text)
+        ? double.tryParse(_radiusController.text.trim())
         : null;
 
-    if (_requiresGps &&
-        (latitude == null || longitude == null || radius == null)) {
+    if (_requiresGps && (radius == null || radius <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter valid GPS coordinates and radius.'),
-        ),
+        const SnackBar(content: Text('Enter a valid GPS radius.')),
       );
 
       return;
@@ -446,6 +454,12 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
     });
 
     try {
+      Position? position;
+
+      if (_requiresGps) {
+        position = await _getTeacherPosition();
+      }
+
       await _service.createAttendanceSession(
         courseId: _courseId,
         classType: _classType,
@@ -453,8 +467,8 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
         requiresPasscode: _requiresPasscode,
         passcode: _requiresPasscode ? _passcodeController.text.trim() : null,
         requiresGps: _requiresGps,
-        latitude: latitude,
-        longitude: longitude,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
         radiusMeters: radius,
         allowLateEntry: _allowLateEntry,
       );
@@ -470,6 +484,14 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not get your current location: $error')),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -480,75 +502,223 @@ class _CreateSessionDialogState extends State<_CreateSessionDialog> {
   }
 }
 
-class _AttendanceMonitorDialog extends StatelessWidget {
-  static const _service = TeacherAcademicService();
-
+class _AttendanceMonitorDialog extends StatefulWidget {
   final TeacherAttendanceSession session;
 
   const _AttendanceMonitorDialog({required this.session});
 
   @override
+  State<_AttendanceMonitorDialog> createState() =>
+      _AttendanceMonitorDialogState();
+}
+
+class _AttendanceMonitorDialogState extends State<_AttendanceMonitorDialog> {
+  static const _service = TeacherAcademicService();
+
+  late Future<_MonitorData> _future;
+
+  Timer? _timer;
+  int _ticks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _reload();
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _ticks++;
+
+      if (_ticks % 3 == 0) {
+        _reload();
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  void _reload() {
+    _future = _load();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<_MonitorData> _load() async {
+    final results = await Future.wait([
+      _service.loadCourseStudents(widget.session.courseId),
+      _service.loadAttendanceRecords(widget.session),
+    ]);
+
+    return _MonitorData(
+      students: results[0] as List<EnrolledStudent>,
+      records: results[1] as List<TeacherAttendanceRecord>,
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _remaining {
+    final endsAt = widget.session.endsAt;
+
+    if (endsAt == null) {
+      return '--:--';
+    }
+
+    final duration = endsAt.difference(DateTime.now());
+
+    if (duration.isNegative) {
+      return '00:00';
+    }
+
+    final minutes = duration.inMinutes;
+
+    final seconds = duration.inSeconds % 60;
+
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('${session.courseCode} attendance'),
+      title: Text('${widget.session.courseCode} attendance'),
       content: SizedBox(
-        width: 650,
-        height: 430,
-        child: FutureBuilder<List<EnrolledStudent>>(
-          future: _service.loadCourseStudents(session.courseId),
-          builder: (context, studentSnapshot) {
-            if (!studentSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+        width: 760,
+        height: 520,
+        child: FutureBuilder<_MonitorData>(
+          future: _future,
+          builder: (context, snapshot) {
+            final data = snapshot.data;
+
+            final students = data?.students ?? const <EnrolledStudent>[];
+
+            final records = {
+              for (final record
+                  in data?.records ?? const <TeacherAttendanceRecord>[])
+                record.studentId: record,
+            };
+
+            int present = 0;
+            int late = 0;
+            int absent = 0;
+            int waiting = 0;
+
+            for (final student in students) {
+              final status = records[student.uid]?.status ?? 'waiting';
+
+              switch (status) {
+                case 'present':
+                  present++;
+                  break;
+                case 'late':
+                  late++;
+                  break;
+                case 'absent':
+                  absent++;
+                  break;
+                default:
+                  waiting++;
+              }
             }
 
-            return FutureBuilder<List<TeacherAttendanceRecord>>(
-              future: _service.loadAttendanceRecords(session),
-              builder: (context, recordSnapshot) {
-                if (!recordSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final records = {
-                  for (final record in recordSnapshot.data!)
-                    record.studentId: record,
-                };
-
-                final students = studentSnapshot.data!;
-
-                if (students.isEmpty) {
-                  return const Center(child: Text('No students enrolled.'));
-                }
-
-                return ListView.separated(
-                  itemCount: students.length,
-                  separatorBuilder: (_, _) => const Divider(),
-                  itemBuilder: (context, index) {
-                    final student = students[index];
-
-                    final record = records[student.uid];
-
-                    final status = record?.status ?? 'pending';
-
-                    return ListTile(
-                      leading: Icon(
-                        status == 'present'
-                            ? Icons.check_circle_rounded
-                            : status == 'absent'
-                            ? Icons.cancel_rounded
-                            : Icons.schedule_rounded,
-                        color: status == 'present'
-                            ? AppColors.success
-                            : status == 'absent'
-                            ? AppColors.danger
-                            : AppColors.textTertiary,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.regular),
+                  decoration: BoxDecoration(
+                    color: AppColors.informationBackground,
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
+                  ),
+                  child: Wrap(
+                    spacing: 28,
+                    runSpacing: 12,
+                    children: [
+                      _MonitorStat(label: 'Time remaining', value: _remaining),
+                      _MonitorStat(
+                        label: 'Enrolled',
+                        value: students.length.toString(),
                       ),
-                      title: Text(student.displayName),
-                      subtitle: Text(student.institutionId),
-                      trailing: Text(status.toUpperCase()),
-                    );
-                  },
-                );
-              },
+                      _MonitorStat(label: 'Present', value: present.toString()),
+                      _MonitorStat(label: 'Late', value: late.toString()),
+                      _MonitorStat(label: 'Waiting', value: waiting.toString()),
+                      _MonitorStat(label: 'Absent', value: absent.toString()),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.regular),
+                Expanded(
+                  child:
+                      snapshot.connectionState != ConnectionState.done &&
+                          data == null
+                      ? const Center(child: CircularProgressIndicator())
+                      : students.isEmpty
+                      ? const Center(child: Text('No students enrolled.'))
+                      : ListView.separated(
+                          itemCount: students.length,
+                          separatorBuilder: (_, _) => const Divider(),
+                          itemBuilder: (context, index) {
+                            final student = students[index];
+
+                            final status =
+                                records[student.uid]?.status ?? 'waiting';
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                child: Text(
+                                  student.displayName.isEmpty
+                                      ? '?'
+                                      : student.displayName[0].toUpperCase(),
+                                ),
+                              ),
+                              title: Text(student.displayName),
+                              subtitle: Text(
+                                '${student.institutionId}\n${student.email}',
+                              ),
+                              isThreeLine: true,
+                              trailing: DropdownButton<String>(
+                                value: status,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'waiting',
+                                    child: Text('Waiting'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'present',
+                                    child: Text('Present'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'late',
+                                    child: Text('Late'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'absent',
+                                    child: Text('Absent'),
+                                  ),
+                                ],
+                                onChanged: widget.session.status == 'active'
+                                    ? (value) {
+                                        if (value != null) {
+                                          _setStatus(student, value);
+                                        }
+                                      }
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             );
           },
         ),
@@ -561,6 +731,63 @@ class _AttendanceMonitorDialog extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _setStatus(EnrolledStudent student, String status) async {
+    try {
+      await _service.setAttendanceStatus(
+        sessionId: widget.session.id,
+        studentId: student.uid,
+        status: status,
+      );
+
+      _reload();
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+class _MonitorStat extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MonitorStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 105,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonitorData {
+  final List<EnrolledStudent> students;
+  final List<TeacherAttendanceRecord> records;
+
+  const _MonitorData({required this.students, required this.records});
 }
 
 class _SessionCard extends StatelessWidget {
@@ -601,6 +828,11 @@ class _SessionCard extends StatelessWidget {
                     '${session.classType} · ${session.durationMinutes} min · ${session.status}',
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
+                  if (session.requiresGps)
+                    const Text(
+                      'GPS verification enabled',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
                 ],
               ),
             ),

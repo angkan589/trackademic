@@ -371,6 +371,55 @@ class TeacherAcademicService {
     );
   }
 
+  Future<String> getCourseJoinCode(String courseId) async {
+    final data = await _call('getCourseJoinCode', {'courseId': courseId});
+
+    return data['joinCode'] as String;
+  }
+
+  Future<List<TeacherJoinRequest>> loadCourseJoinRequests(
+    String courseId,
+  ) async {
+    final snapshot = await _database
+        .collection('courseJoinRequests')
+        .where('courseId', isEqualTo: courseId)
+        .get();
+
+    final requests = snapshot.docs
+        .map(
+          (document) =>
+              TeacherJoinRequest.fromMap(document.id, document.data()),
+        )
+        .where((request) => request.status == 'pending')
+        .toList();
+
+    requests.sort((a, b) => a.institutionId.compareTo(b.institutionId));
+
+    return requests;
+  }
+
+  Future<void> respondCourseJoinRequest({
+    required String requestId,
+    required bool approve,
+  }) async {
+    await _call('respondCourseJoinRequest', {
+      'requestId': requestId,
+      'response': approve ? 'approved' : 'rejected',
+    });
+  }
+
+  Future<void> setAttendanceStatus({
+    required String sessionId,
+    required String studentId,
+    required String status,
+  }) async {
+    await _call('setAttendanceStatus', {
+      'sessionId': sessionId,
+      'studentId': studentId,
+      'status': status,
+    });
+  }
+
   Future<Map<String, dynamic>> _call(
     String name,
     Map<String, dynamic> data,
@@ -423,6 +472,7 @@ class TeacherCourse {
   final String? section;
   final String? semester;
   final String? room;
+  final String? joinCode;
   final bool isActive;
 
   const TeacherCourse({
@@ -436,8 +486,26 @@ class TeacherCourse {
     required this.section,
     required this.semester,
     required this.room,
+    required this.joinCode,
     required this.isActive,
   });
+
+  TeacherCourse withJoinCode(String value) {
+    return TeacherCourse(
+      id: id,
+      code: code,
+      name: name,
+      teacherId: teacherId,
+      teacherName: teacherName,
+      department: department,
+      batch: batch,
+      section: section,
+      semester: semester,
+      room: room,
+      joinCode: value,
+      isActive: isActive,
+    );
+  }
 
   factory TeacherCourse.fromMap(String id, Map<String, dynamic> data) {
     return TeacherCourse(
@@ -451,6 +519,7 @@ class TeacherCourse {
       section: _nullableText(data['section']),
       semester: _nullableText(data['semester']),
       room: _nullableText(data['room']),
+      joinCode: _nullableText(data['joinCode']),
       isActive: data['isActive'] as bool? ?? false,
     );
   }
@@ -478,6 +547,38 @@ class EnrolledStudent {
       displayName: data['displayName'] as String? ?? '',
       email: data['email'] as String? ?? '',
       isActive: data['isActive'] as bool? ?? true,
+    );
+  }
+}
+
+class TeacherJoinRequest {
+  final String id;
+  final String courseId;
+  final String studentId;
+  final String studentName;
+  final String institutionId;
+  final String email;
+  final String status;
+
+  const TeacherJoinRequest({
+    required this.id,
+    required this.courseId,
+    required this.studentId,
+    required this.studentName,
+    required this.institutionId,
+    required this.email,
+    required this.status,
+  });
+
+  factory TeacherJoinRequest.fromMap(String id, Map<String, dynamic> data) {
+    return TeacherJoinRequest(
+      id: id,
+      courseId: data['courseId'] as String? ?? '',
+      studentId: data['studentId'] as String? ?? '',
+      studentName: data['studentName'] as String? ?? '',
+      institutionId: data['institutionId'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      status: data['status'] as String? ?? '',
     );
   }
 }

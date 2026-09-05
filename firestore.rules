@@ -20,50 +20,49 @@ service cloud.firestore {
           ).data.isActive == true;
     }
 
-    function hasRole(role) {
-      return isActiveUser() &&
-          get(
-            /databases/$(database)/documents/users/$(request.auth.uid)
-          ).data.role == role;
-    }
-
-    function isAdmin() {
-      return hasRole('admin');
-    }
-
     function isSelf(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isSignedIn() &&
+          request.auth.uid == userId;
+    }
+
+    function courseExists(courseId) {
+      return exists(
+        /databases/$(database)/documents/courses/$(courseId)
+      );
     }
 
     function isCourseTeacher(courseId) {
-      return hasRole('teacher') &&
-          exists(
-            /databases/$(database)/documents/courses/$(courseId)
-          ) &&
+      return isActiveUser() &&
+          courseExists(courseId) &&
           get(
             /databases/$(database)/documents/courses/$(courseId)
           ).data.teacherId == request.auth.uid;
     }
 
-    function isCourseStudent(courseId) {
-      return hasRole('student') &&
+    function enrollmentExists(courseId) {
+      return isActiveUser() &&
           exists(
             /databases/$(database)/documents/courses/$(courseId)/students/$(request.auth.uid)
           );
     }
 
+    function isCourseStudent(courseId) {
+      return enrollmentExists(courseId) &&
+          get(
+            /databases/$(database)/documents/courses/$(courseId)/students/$(request.auth.uid)
+          ).data.isActive == true;
+    }
+
     function canAccessCourse(courseId) {
-      return isAdmin() ||
-          isCourseTeacher(courseId) ||
+      return isCourseTeacher(courseId) ||
           isCourseStudent(courseId);
     }
 
-    // User profiles are created by Cloud Functions.
     match /users/{userId} {
-      allow get: if isActiveUser() &&
-          (isSelf(userId) || isAdmin());
+      allow get: if isSelf(userId) &&
+          isActiveUser();
 
-      allow list: if isAdmin();
+      allow list: if false;
 
       allow create, delete: if false;
 
@@ -85,7 +84,8 @@ service cloud.firestore {
           request.resource.data.updatedAt == request.time;
 
       match /deviceTokens/{tokenId} {
-        allow read: if isSelf(userId) && isActiveUser();
+        allow read: if isSelf(userId) &&
+            isActiveUser();
 
         allow create: if isSelf(userId) &&
             isActiveUser() &&
@@ -136,22 +136,32 @@ service cloud.firestore {
             ] &&
             request.resource.data.updatedAt == request.time;
 
-        allow delete: if isSelf(userId) && isActiveUser();
+        allow delete: if isSelf(userId) &&
+            isActiveUser();
       }
     }
 
-    // Course metadata is visible to authenticated active users.
-    // Course creation and changes go through Cloud Functions.
     match /courses/{courseId} {
-      allow read: if isActiveUser();
+      allow get: if isActiveUser() &&
+          (
+            resource.data.teacherId == request.auth.uid ||
+            isCourseStudent(courseId)
+          );
+
+      allow list: if isActiveUser() &&
+          resource.data.teacherId == request.auth.uid;
+
       allow write: if false;
 
       match /students/{studentId} {
-        allow get: if isAdmin() ||
-            isCourseTeacher(courseId) ||
-            (isSelf(studentId) && isCourseStudent(courseId));
+        allow get: if isCourseTeacher(courseId) ||
+            (
+              isSelf(studentId) &&
+              isCourseStudent(courseId)
+            );
 
-        allow list: if isAdmin() || isCourseTeacher(courseId);
+        allow list: if isCourseTeacher(courseId);
+
         allow write: if false;
       }
     }
@@ -161,10 +171,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Public attendance-session information only.
-    // Passcodes and GPS configuration will be stored separately.
     match /attendanceSessions/{sessionId} {
-      allow read: if canAccessCourse(resource.data.courseId);
+      allow read: if canAccessCourse(
+        resource.data.courseId
+      );
+
       allow write: if false;
 
       match /private/{privateDocument} {
@@ -173,85 +184,134 @@ service cloud.firestore {
     }
 
     match /attendanceRecords/{recordId} {
-      allow read: if isAdmin() ||
-          isCourseTeacher(resource.data.courseId) ||
+      allow read: if isCourseTeacher(
+            resource.data.courseId
+          ) ||
           (
-            isCourseStudent(resource.data.courseId) &&
-            resource.data.studentId == request.auth.uid
+            isCourseStudent(
+              resource.data.courseId
+            ) &&
+            resource.data.studentId ==
+              request.auth.uid
           );
 
       allow write: if false;
     }
 
     match /attendanceSummaries/{summaryId} {
-      allow read: if isAdmin() ||
-          isCourseTeacher(resource.data.courseId) ||
+      allow read: if isCourseTeacher(
+            resource.data.courseId
+          ) ||
           (
-            isCourseStudent(resource.data.courseId) &&
-            resource.data.studentId == request.auth.uid
+            isCourseStudent(
+              resource.data.courseId
+            ) &&
+            resource.data.studentId ==
+              request.auth.uid
           );
 
       allow write: if false;
     }
 
     match /assessments/{assessmentId} {
-      allow read: if isAdmin() ||
-          isCourseTeacher(resource.data.courseId) ||
+      allow read: if isCourseTeacher(
+            resource.data.courseId
+          ) ||
           (
-            resource.data.status == 'published' &&
-            isCourseStudent(resource.data.courseId)
+            resource.data.status ==
+              'published' &&
+            isCourseStudent(
+              resource.data.courseId
+            )
           );
 
       allow write: if false;
     }
 
     match /marks/{markId} {
-      allow read: if isAdmin() ||
-          isCourseTeacher(resource.data.courseId) ||
+      allow read: if isCourseTeacher(
+            resource.data.courseId
+          ) ||
           (
-            resource.data.published == true &&
-            resource.data.studentId == request.auth.uid &&
-            isCourseStudent(resource.data.courseId)
+            resource.data.published ==
+              true &&
+            resource.data.studentId ==
+              request.auth.uid &&
+            isCourseStudent(
+              resource.data.courseId
+            )
           );
 
       allow write: if false;
     }
 
     match /schedules/{scheduleId} {
-      allow read: if canAccessCourse(resource.data.courseId);
+      allow read: if canAccessCourse(
+        resource.data.courseId
+      );
+
       allow write: if false;
     }
 
     match /academicRecords/{recordId} {
-      allow read: if isAdmin() ||
-          isCourseTeacher(resource.data.courseId) ||
+      allow read: if isCourseTeacher(
+            resource.data.courseId
+          ) ||
           (
-            resource.data.published == true &&
-            resource.data.studentId == request.auth.uid &&
-            isCourseStudent(resource.data.courseId)
+            resource.data.published ==
+              true &&
+            resource.data.studentId ==
+              request.auth.uid &&
+            isCourseStudent(
+              resource.data.courseId
+            )
+          );
+
+      allow write: if false;
+    }
+
+    match /courseJoinRequests/{requestId} {
+      allow get: if isActiveUser() &&
+          (
+            resource.data.studentId == request.auth.uid ||
+            isCourseTeacher(resource.data.courseId)
+          );
+
+      allow list: if isActiveUser() &&
+          (
+            resource.data.studentId == request.auth.uid ||
+            isCourseTeacher(resource.data.courseId)
           );
 
       allow write: if false;
     }
 
     match /notifications/{userId}/items/{notificationId} {
-      allow read: if isSelf(userId) && isActiveUser();
+      allow read: if isSelf(userId) &&
+          isActiveUser();
 
       allow update: if isSelf(userId) &&
           isActiveUser() &&
           request.resource.data
               .diff(resource.data)
               .affectedKeys()
-              .hasOnly(['isRead', 'readAt']) &&
+              .hasOnly([
+                'isRead',
+                'readAt'
+              ]) &&
           request.resource.data.isRead is bool &&
           (
             (
-              request.resource.data.isRead == true &&
-              request.resource.data.readAt == request.time
+              request.resource.data.isRead ==
+                true &&
+              request.resource.data.readAt ==
+                request.time
             ) ||
             (
-              request.resource.data.isRead == false &&
-              request.resource.data.readAt == null
+              request.resource.data.isRead ==
+                false &&
+              request.resource.data.readAt ==
+                null
             )
           );
 
@@ -259,16 +319,22 @@ service cloud.firestore {
     }
 
     match /auditLogs/{logId} {
-      allow read: if isAdmin() ||
-          (
-            hasRole('teacher') &&
-            resource.data.actorId == request.auth.uid
-          );
+      allow read: if isActiveUser() &&
+          resource.data.actorId ==
+            request.auth.uid;
 
       allow write: if false;
     }
 
+    // Legacy onboarding collection.
+    // The application no longer depends on invitations.
     match /registrationInvites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    // Institution IDs are reserved by Cloud Functions
+    // so two accounts cannot use the same ID.
+    match /institutionIds/{institutionId} {
       allow read, write: if false;
     }
 
@@ -277,7 +343,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Deny access to every collection not explicitly defined above.
     match /{document=**} {
       allow read, write: if false;
     }
