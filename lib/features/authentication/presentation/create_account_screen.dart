@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/features/authentication/presentation/sign_in_screen.dart';
+import 'package:trackademic/core/services/auth_service.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -10,7 +11,9 @@ class CreateAccountScreen extends StatefulWidget {
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _formKey = GlobalKey<FormState>();
+  static const _authService = AuthService();
 
+  bool _isSubmitting = false;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _institutionIdController = TextEditingController();
@@ -36,20 +39,51 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     super.dispose();
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
+    if (_isSubmitting) {
+      return;
+    }
+
     final isValid = _formKey.currentState?.validate() ?? false;
 
     if (!isValid) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Registration form is valid. Firebase will be added later.',
-        ),
-      ),
-    );
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _authService.register(
+        displayName: _nameController.text,
+        email: _emailController.text,
+        institutionId: _institutionIdController.text,
+        password: _passwordController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on AuthServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -250,7 +284,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       obscureText: _hideConfirmedPassword,
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) {
-                        _submitForm();
+                        if (!_isSubmitting) {
+                          _submitForm();
+                        }
                       },
                       decoration: _inputDecoration(
                         label: 'Confirm password',
@@ -290,11 +326,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     SizedBox(
                       height: 54,
                       child: FilledButton.icon(
-                        onPressed: _submitForm,
-                        icon: const Icon(Icons.person_add_alt_1_rounded),
-                        label: const Text(
-                          'Create account',
-                          style: TextStyle(
+                        onPressed: _isSubmitting ? null : _submitForm,
+                        icon: _isSubmitting
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.person_add_alt_1_rounded),
+                        label: Text(
+                          _isSubmitting
+                              ? 'Creating account...'
+                              : 'Create account',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),

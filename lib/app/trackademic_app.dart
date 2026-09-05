@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_theme.dart';
-import 'package:trackademic/features/welcome/presentation/welcome_screen.dart';
+import 'package:trackademic/features/authentication/presentation/auth_gate.dart';
 
 class TrackademicApp extends StatelessWidget {
   const TrackademicApp({super.key});
@@ -11,7 +11,7 @@ class TrackademicApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Trackademic',
       theme: AppTheme.light,
-      home: const WelcomeScreen(),
+      home: const AuthGate(),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
 import 'package:trackademic/features/ui_preview/presentation/role_preview_screen.dart';
+import 'package:trackademic/core/services/auth_service.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -12,7 +13,9 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final _formKey = GlobalKey<FormState>();
+  static const _authService = AuthService();
 
+  bool _isSubmitting = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -31,20 +34,80 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
+    if (_isSubmitting) {
+      return;
+    }
+
     final isValid = _formKey.currentState?.validate() ?? false;
 
     if (!isValid) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Form is valid. Firebase authentication will be added later.',
-        ),
-      ),
-    );
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _authService.signIn(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on AuthServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !_isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your valid email address first.')),
+      );
+      return;
+    }
+
+    try {
+      await _authService.sendPasswordReset(email);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password-reset email sent.')),
+      );
+    } on AuthServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 
   @override
@@ -157,7 +220,9 @@ class _SignInScreenState extends State<SignInScreen> {
                       textInputAction: TextInputAction.done,
                       autofillHints: const [AutofillHints.password],
                       onFieldSubmitted: (_) {
-                        _submitForm();
+                        if (!_isSubmitting) {
+                          _submitForm();
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -203,9 +268,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          // Firebase password reset will be added later.
-                        },
+                        onPressed: _sendPasswordReset,
                         child: const Text('Forgot password?'),
                       ),
                     ),
@@ -215,11 +278,18 @@ class _SignInScreenState extends State<SignInScreen> {
                     SizedBox(
                       height: 54,
                       child: FilledButton.icon(
-                        onPressed: _submitForm,
-                        icon: const Icon(Icons.login_rounded),
-                        label: const Text(
-                          'Sign in securely',
-                          style: TextStyle(
+                        onPressed: _isSubmitting ? null : _submitForm,
+                        icon: _isSubmitting
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.login_rounded),
+                        label: Text(
+                          _isSubmitting ? 'Signing in...' : 'Sign in securely',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
