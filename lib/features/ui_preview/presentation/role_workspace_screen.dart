@@ -3,14 +3,14 @@ import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
 import 'package:trackademic/features/student/attendance/presentation/student_attendance_screen.dart';
 import 'package:trackademic/features/student/dashboard/presentation/student_dashboard_screen.dart';
+import 'package:trackademic/features/student/marks/presentation/student_marks_screen.dart';
+import 'package:trackademic/features/student/profile/presentation/student_profile_screen.dart';
+import 'package:trackademic/features/student/schedule/presentation/student_schedule_screen.dart';
 import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 import 'package:trackademic/features/teacher/courses/presentation/teacher_courses_screen.dart';
 import 'package:trackademic/features/teacher/dashboard/presentation/teacher_dashboard_screen.dart';
 import 'package:trackademic/features/teacher/marks/presentation/teacher_marks_screen.dart';
 import 'package:trackademic/features/teacher/schedule/presentation/teacher_schedule_screen.dart';
-import 'package:trackademic/features/student/marks/presentation/student_marks_screen.dart';
-import 'package:trackademic/features/student/schedule/presentation/student_schedule_screen.dart';
-import 'package:trackademic/features/student/profile/presentation/student_profile_screen.dart';
 
 class WorkspaceDestination {
   final String label;
@@ -26,13 +26,90 @@ class WorkspaceDestination {
   });
 }
 
+abstract final class WorkspaceDestinations {
+  static const teacher = <WorkspaceDestination>[
+    WorkspaceDestination(
+      label: 'Dashboard',
+      description:
+          'Overview of courses, attendance sessions, student activity, '
+          'and upcoming classes.',
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Attendance',
+      description:
+          'Create secured attendance sessions and monitor student participation.',
+      icon: Icons.how_to_reg_outlined,
+      selectedIcon: Icons.how_to_reg_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Courses',
+      description:
+          'Manage assigned courses, enrolled students, and course information.',
+      icon: Icons.menu_book_outlined,
+      selectedIcon: Icons.menu_book_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Marks',
+      description:
+          'Enter and manage CT marks, attendance marks, and academic results.',
+      icon: Icons.analytics_outlined,
+      selectedIcon: Icons.analytics_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Schedule',
+      description: 'Create, view, and update regular class schedules.',
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month_rounded,
+    ),
+  ];
+
+  static const student = <WorkspaceDestination>[
+    WorkspaceDestination(
+      label: 'Dashboard',
+      description:
+          'Overview of attendance percentage, marks, courses, and upcoming classes.',
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Attendance',
+      description:
+          'Mark attendance securely and review previous attendance records.',
+      icon: Icons.fact_check_outlined,
+      selectedIcon: Icons.fact_check_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Marks',
+      description: 'Review CT marks, attendance marks, and academic progress.',
+      icon: Icons.bar_chart_outlined,
+      selectedIcon: Icons.bar_chart_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Schedule',
+      description: 'View regular classes and recently updated schedules.',
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month_rounded,
+    ),
+    WorkspaceDestination(
+      label: 'Profile',
+      description: 'Review personal information and academic privacy settings.',
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+    ),
+  ];
+}
+
 class RoleWorkspaceScreen extends StatefulWidget {
   final String roleName;
   final List<WorkspaceDestination> destinations;
+  final Future<void> Function()? onSignOut;
 
   const RoleWorkspaceScreen({
     required this.roleName,
     required this.destinations,
+    this.onSignOut,
     super.key,
   });
 
@@ -42,6 +119,7 @@ class RoleWorkspaceScreen extends StatefulWidget {
 
 class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
   int _selectedIndex = 0;
+  bool _isSigningOut = false;
 
   @override
   Widget build(BuildContext context) {
@@ -96,14 +174,11 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
             onPressed: () {},
             icon: const Icon(Icons.notifications_none_rounded),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: IconButton(
+          if (widget.roleName == 'Student')
+            IconButton(
               tooltip: 'Profile',
               onPressed: () {
-                if (widget.roleName == 'Student') {
-                  _selectDestination(4);
-                }
+                _selectDestination(4);
               },
               icon: const CircleAvatar(
                 radius: 17,
@@ -115,7 +190,20 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
                 ),
               ),
             ),
-          ),
+          if (widget.onSignOut != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                tooltip: 'Sign out',
+                onPressed: _isSigningOut ? null : _signOut,
+                icon: _isSigningOut
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout_rounded),
+              ),
+            ),
         ],
       ),
       body: isDesktop
@@ -156,9 +244,35 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
   }
 
   void _selectDestination(int index) {
+    if (index < 0 || index >= widget.destinations.length) {
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Future<void> _signOut() async {
+    final signOut = widget.onSignOut;
+
+    if (signOut == null || _isSigningOut) {
+      return;
+    }
+
+    setState(() {
+      _isSigningOut = true;
+    });
+
+    try {
+      await signOut();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningOut = false;
+        });
+      }
+    }
   }
 }
 

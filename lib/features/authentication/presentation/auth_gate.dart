@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/services/auth_service.dart';
-import 'package:trackademic/features/ui_preview/presentation/role_preview_screen.dart';
 import 'package:trackademic/features/ui_preview/presentation/role_workspace_screen.dart';
 import 'package:trackademic/features/welcome/presentation/welcome_screen.dart';
 
@@ -73,15 +72,23 @@ class _WorkspaceLoaderState extends State<_WorkspaceLoader> {
         final profile = snapshot.data!;
 
         if (profile.role == 'teacher') {
-          return const RoleWorkspaceScreen(
+          return RoleWorkspaceScreen(
             roleName: 'Teacher',
-            destinations: RolePreviewScreen.teacherDestinations,
+            destinations: WorkspaceDestinations.teacher,
+            onSignOut: _authService.signOut,
           );
         }
 
-        return const RoleWorkspaceScreen(
-          roleName: 'Student',
-          destinations: RolePreviewScreen.studentDestinations,
+        if (profile.role == 'student') {
+          return RoleWorkspaceScreen(
+            roleName: 'Student',
+            destinations: WorkspaceDestinations.student,
+            onSignOut: _authService.signOut,
+          );
+        }
+
+        return const _ProfileErrorScreen(
+          error: 'This account has an unsupported role.',
         );
       },
     );
