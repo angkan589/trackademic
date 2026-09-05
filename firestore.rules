@@ -326,13 +326,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Legacy onboarding collection.
-    // The application no longer depends on invitations.
-    match /registrationInvites/{inviteId} {
-      allow read, write: if false;
-    }
-
-    // Institution IDs are reserved by Cloud Functions
+// Institution IDs are reserved by Cloud Functions
     // so two accounts cannot use the same ID.
     match /institutionIds/{institutionId} {
       allow read, write: if false;

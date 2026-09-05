@@ -127,7 +127,7 @@ class RolePreviewScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.small),
                 const Text(
-                  'Both experiences will use mock data until the UI is complete.',
+                  'Your access depends on the courses you create and the courses you join.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,

@@ -367,7 +367,7 @@ class _CreateCourseDialogState extends State<_CreateCourseDialog> {
                   controller: _codeController,
                   decoration: const InputDecoration(
                     labelText: 'Course code *',
-                    hintText: 'CSE 315',
+                    hintText: 'Enter course code',
                   ),
                   validator: _required,
                 ),
