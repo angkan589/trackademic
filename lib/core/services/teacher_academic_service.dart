@@ -10,7 +10,17 @@ class TeacherAcademicService {
   FirebaseFunctions get _functions =>
       FirebaseFunctions.instanceFor(region: 'asia-south1');
 
-  String get _currentTeacherId {
+  String get currentTeacherName {
+    final name = FirebaseAuth.instance.currentUser?.displayName?.trim();
+
+    if (name == null || name.isEmpty) {
+      return 'Teacher';
+    }
+
+    return name;
+  }
+
+  String get _teacherId {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -21,11 +31,9 @@ class TeacherAcademicService {
   }
 
   Future<List<TeacherCourse>> loadMyCourses() async {
-    final teacherId = _currentTeacherId;
-
     final snapshot = await _database
         .collection('courses')
-        .where('teacherId', isEqualTo: teacherId)
+        .where('teacherId', isEqualTo: _teacherId)
         .get();
 
     final courses = snapshot.docs
@@ -47,51 +55,37 @@ class TeacherAcademicService {
     String? semester,
     String? room,
   }) async {
-    try {
-      final callable = _functions.httpsCallable('createCourse');
+    final data = await _call('createCourse', {
+      'code': code,
+      'name': name,
+      'department': department,
+      'batch': batch,
+      'section': section,
+      'semester': semester,
+      'room': room,
+    });
 
-      final result = await callable.call<Map<String, dynamic>>({
-        'code': code,
-        'name': name,
-        'department': department,
-        'batch': batch,
-        'section': section,
-        'semester': semester,
-        'room': room,
-      });
-
-      final courseId = result.data['courseId'];
-
-      if (courseId is! String || courseId.isEmpty) {
-        throw const TeacherAcademicServiceException(
-          'The course was created but its ID was not returned.',
-        );
-      }
-
-      return courseId;
-    } on FirebaseFunctionsException catch (error) {
-      throw TeacherAcademicServiceException(
-        error.message ?? 'Could not create the course.',
-      );
-    }
+    return data['courseId'] as String;
   }
 
   Future<void> enrollStudent({
     required String courseId,
     required String institutionId,
   }) async {
-    try {
-      final callable = _functions.httpsCallable('enrollStudent');
+    await _call('enrollStudent', {
+      'courseId': courseId,
+      'institutionId': institutionId,
+    });
+  }
 
-      await callable.call<Map<String, dynamic>>({
-        'courseId': courseId,
-        'institutionId': institutionId,
-      });
-    } on FirebaseFunctionsException catch (error) {
-      throw TeacherAcademicServiceException(
-        error.message ?? 'Could not enroll the student.',
-      );
-    }
+  Future<void> unenrollStudent({
+    required String courseId,
+    required String studentId,
+  }) async {
+    await _call('unenrollStudent', {
+      'courseId': courseId,
+      'studentId': studentId,
+    });
   }
 
   Future<List<EnrolledStudent>> loadCourseStudents(String courseId) async {
@@ -114,6 +108,308 @@ class TeacherAcademicService {
 
     return students;
   }
+
+  Future<List<TeacherScheduleEntry>> loadMySchedules() async {
+    final courses = await loadMyCourses();
+
+    final entries = <TeacherScheduleEntry>[];
+
+    for (final course in courses) {
+      final snapshot = await _database
+          .collection('schedules')
+          .where('courseId', isEqualTo: course.id)
+          .get();
+
+      entries.addAll(
+        snapshot.docs.map(
+          (document) =>
+              TeacherScheduleEntry.fromMap(document.id, document.data()),
+        ),
+      );
+    }
+
+    entries.sort((first, second) {
+      final day = first.dayIndex.compareTo(second.dayIndex);
+
+      if (day != 0) {
+        return day;
+      }
+
+      return first.startTime.compareTo(second.startTime);
+    });
+
+    return entries;
+  }
+
+  Future<void> createSchedule({
+    required String courseId,
+    required int dayIndex,
+    required String day,
+    required String startTime,
+    required String endTime,
+    required String room,
+    required String classType,
+  }) async {
+    await _call('createSchedule', {
+      'courseId': courseId,
+      'dayIndex': dayIndex,
+      'day': day,
+      'startTime': startTime,
+      'endTime': endTime,
+      'room': room,
+      'classType': classType,
+    });
+  }
+
+  Future<void> updateSchedule({
+    required String scheduleId,
+    required String courseId,
+    required int dayIndex,
+    required String day,
+    required String startTime,
+    required String endTime,
+    required String room,
+    required String classType,
+  }) async {
+    await _call('updateSchedule', {
+      'scheduleId': scheduleId,
+      'courseId': courseId,
+      'dayIndex': dayIndex,
+      'day': day,
+      'startTime': startTime,
+      'endTime': endTime,
+      'room': room,
+      'classType': classType,
+    });
+  }
+
+  Future<void> deleteSchedule(String scheduleId) async {
+    await _call('deleteSchedule', {'scheduleId': scheduleId});
+  }
+
+  Future<List<TeacherAttendanceSession>> loadAttendanceSessions() async {
+    final courses = await loadMyCourses();
+
+    final sessions = <TeacherAttendanceSession>[];
+
+    for (final course in courses) {
+      final snapshot = await _database
+          .collection('attendanceSessions')
+          .where('courseId', isEqualTo: course.id)
+          .get();
+
+      sessions.addAll(
+        snapshot.docs.map(
+          (document) =>
+              TeacherAttendanceSession.fromMap(document.id, document.data()),
+        ),
+      );
+    }
+
+    sessions.sort((first, second) {
+      final firstTime =
+          first.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      final secondTime =
+          second.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      return secondTime.compareTo(firstTime);
+    });
+
+    return sessions;
+  }
+
+  Future<void> createAttendanceSession({
+    required String courseId,
+    required String classType,
+    required int durationMinutes,
+    required bool requiresPasscode,
+    required String? passcode,
+    required bool requiresGps,
+    required double? latitude,
+    required double? longitude,
+    required double? radiusMeters,
+    required bool allowLateEntry,
+  }) async {
+    await _call('createAttendanceSession', {
+      'courseId': courseId,
+      'classType': classType,
+      'durationMinutes': durationMinutes,
+      'requiresPasscode': requiresPasscode,
+      'passcode': passcode,
+      'requiresGps': requiresGps,
+      'latitude': latitude,
+      'longitude': longitude,
+      'radiusMeters': radiusMeters,
+      'allowLateEntry': allowLateEntry,
+    });
+  }
+
+  Future<void> closeAttendanceSession(String sessionId) async {
+    await _call('closeAttendanceSession', {'sessionId': sessionId});
+  }
+
+  Future<List<TeacherAttendanceRecord>> loadAttendanceRecords(
+    TeacherAttendanceSession session,
+  ) async {
+    final snapshot = await _database
+        .collection('attendanceRecords')
+        .where('courseId', isEqualTo: session.courseId)
+        .where('sessionId', isEqualTo: session.id)
+        .get();
+
+    final records = snapshot.docs
+        .map(
+          (document) =>
+              TeacherAttendanceRecord.fromMap(document.id, document.data()),
+        )
+        .toList();
+
+    records.sort(
+      (first, second) => first.institutionId.compareTo(second.institutionId),
+    );
+
+    return records;
+  }
+
+  Future<List<TeacherAssessment>> loadAssessmentsForCourse(
+    String courseId,
+  ) async {
+    final snapshot = await _database
+        .collection('assessments')
+        .where('courseId', isEqualTo: courseId)
+        .get();
+
+    final assessments = snapshot.docs
+        .map(
+          (document) => TeacherAssessment.fromMap(document.id, document.data()),
+        )
+        .toList();
+
+    assessments.sort((first, second) => first.name.compareTo(second.name));
+
+    return assessments;
+  }
+
+  Future<List<TeacherAssessment>> loadAllAssessments() async {
+    final courses = await loadMyCourses();
+
+    final result = <TeacherAssessment>[];
+
+    for (final course in courses) {
+      result.addAll(await loadAssessmentsForCourse(course.id));
+    }
+
+    return result;
+  }
+
+  Future<void> createAssessment({
+    required String courseId,
+    required String name,
+    required double maxScore,
+  }) async {
+    await _call('createAssessment', {
+      'courseId': courseId,
+      'name': name,
+      'maxScore': maxScore,
+    });
+  }
+
+  Future<List<TeacherMark>> loadAssessmentMarks(
+    TeacherAssessment assessment,
+  ) async {
+    final snapshot = await _database
+        .collection('marks')
+        .where('courseId', isEqualTo: assessment.courseId)
+        .where('assessmentId', isEqualTo: assessment.id)
+        .get();
+
+    return snapshot.docs
+        .map((document) => TeacherMark.fromMap(document.id, document.data()))
+        .toList();
+  }
+
+  Future<void> saveAssessmentMarks({
+    required String assessmentId,
+    required Map<String, double> marks,
+  }) async {
+    await _call('saveAssessmentMarks', {
+      'assessmentId': assessmentId,
+      'marks': marks.entries
+          .map((entry) => {'studentId': entry.key, 'score': entry.value})
+          .toList(),
+    });
+  }
+
+  Future<void> publishAssessment(String assessmentId) async {
+    await _call('publishAssessment', {'assessmentId': assessmentId});
+  }
+
+  Future<TeacherDashboardOverview> loadDashboardOverview() async {
+    final courses = await loadMyCourses();
+
+    var studentEnrollments = 0;
+
+    for (final course in courses) {
+      final students = await loadCourseStudents(course.id);
+
+      studentEnrollments += students.length;
+    }
+
+    final schedules = await loadMySchedules();
+
+    final sessions = await loadAttendanceSessions();
+
+    final assessments = await loadAllAssessments();
+
+    return TeacherDashboardOverview(
+      courses: courses,
+      studentEnrollments: studentEnrollments,
+      schedules: schedules,
+      sessions: sessions,
+      assessments: assessments,
+    );
+  }
+
+  Future<Map<String, dynamic>> _call(
+    String name,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      final callable = _functions.httpsCallable(name);
+
+      final result = await callable.call<Map<String, dynamic>>(data);
+
+      return result.data;
+    } on FirebaseFunctionsException catch (error) {
+      throw TeacherAcademicServiceException(
+        error.message ?? 'The operation failed.',
+      );
+    }
+  }
+}
+
+class TeacherDashboardOverview {
+  final List<TeacherCourse> courses;
+  final int studentEnrollments;
+  final List<TeacherScheduleEntry> schedules;
+  final List<TeacherAttendanceSession> sessions;
+  final List<TeacherAssessment> assessments;
+
+  const TeacherDashboardOverview({
+    required this.courses,
+    required this.studentEnrollments,
+    required this.schedules,
+    required this.sessions,
+    required this.assessments,
+  });
+
+  int get activeSessions =>
+      sessions.where((session) => session.status == 'active').length;
+
+  int get publishedAssessments => assessments
+      .where((assessment) => assessment.status == 'published')
+      .length;
 }
 
 class TeacherCourse {
@@ -158,16 +454,6 @@ class TeacherCourse {
       isActive: data['isActive'] as bool? ?? false,
     );
   }
-
-  static String? _nullableText(dynamic value) {
-    if (value is! String) {
-      return null;
-    }
-
-    final text = value.trim();
-
-    return text.isEmpty ? null : text;
-  }
 }
 
 class EnrolledStudent {
@@ -194,6 +480,208 @@ class EnrolledStudent {
       isActive: data['isActive'] as bool? ?? true,
     );
   }
+}
+
+class TeacherScheduleEntry {
+  final String id;
+  final String courseId;
+  final String courseCode;
+  final String courseName;
+  final int dayIndex;
+  final String day;
+  final String startTime;
+  final String endTime;
+  final String room;
+  final String classType;
+  final String status;
+
+  const TeacherScheduleEntry({
+    required this.id,
+    required this.courseId,
+    required this.courseCode,
+    required this.courseName,
+    required this.dayIndex,
+    required this.day,
+    required this.startTime,
+    required this.endTime,
+    required this.room,
+    required this.classType,
+    required this.status,
+  });
+
+  factory TeacherScheduleEntry.fromMap(String id, Map<String, dynamic> data) {
+    return TeacherScheduleEntry(
+      id: id,
+      courseId: data['courseId'] as String? ?? '',
+      courseCode: data['courseCode'] as String? ?? '',
+      courseName: data['courseName'] as String? ?? '',
+      dayIndex: (data['dayIndex'] as num?)?.toInt() ?? 0,
+      day: data['day'] as String? ?? '',
+      startTime: data['startTime'] as String? ?? '',
+      endTime: data['endTime'] as String? ?? '',
+      room: data['room'] as String? ?? '',
+      classType: data['classType'] as String? ?? '',
+      status: data['status'] as String? ?? 'scheduled',
+    );
+  }
+}
+
+class TeacherAttendanceSession {
+  final String id;
+  final String courseId;
+  final String courseCode;
+  final String courseName;
+  final String classType;
+  final String status;
+  final int durationMinutes;
+  final bool requiresPasscode;
+  final bool requiresGps;
+  final bool allowLateEntry;
+  final DateTime? startedAt;
+  final DateTime? endsAt;
+
+  const TeacherAttendanceSession({
+    required this.id,
+    required this.courseId,
+    required this.courseCode,
+    required this.courseName,
+    required this.classType,
+    required this.status,
+    required this.durationMinutes,
+    required this.requiresPasscode,
+    required this.requiresGps,
+    required this.allowLateEntry,
+    required this.startedAt,
+    required this.endsAt,
+  });
+
+  factory TeacherAttendanceSession.fromMap(
+    String id,
+    Map<String, dynamic> data,
+  ) {
+    return TeacherAttendanceSession(
+      id: id,
+      courseId: data['courseId'] as String? ?? '',
+      courseCode: data['courseCode'] as String? ?? '',
+      courseName: data['courseName'] as String? ?? '',
+      classType: data['classType'] as String? ?? '',
+      status: data['status'] as String? ?? '',
+      durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 0,
+      requiresPasscode: data['requiresPasscode'] as bool? ?? false,
+      requiresGps: data['requiresGps'] as bool? ?? false,
+      allowLateEntry: data['allowLateEntry'] as bool? ?? false,
+      startedAt: _date(data['startedAt']),
+      endsAt: _date(data['endsAt']),
+    );
+  }
+}
+
+class TeacherAttendanceRecord {
+  final String id;
+  final String studentId;
+  final String institutionId;
+  final String studentName;
+  final String status;
+  final DateTime? markedAt;
+
+  const TeacherAttendanceRecord({
+    required this.id,
+    required this.studentId,
+    required this.institutionId,
+    required this.studentName,
+    required this.status,
+    required this.markedAt,
+  });
+
+  factory TeacherAttendanceRecord.fromMap(
+    String id,
+    Map<String, dynamic> data,
+  ) {
+    return TeacherAttendanceRecord(
+      id: id,
+      studentId: data['studentId'] as String? ?? '',
+      institutionId: data['institutionId'] as String? ?? '',
+      studentName: data['studentName'] as String? ?? '',
+      status: data['status'] as String? ?? '',
+      markedAt: _date(data['markedAt']),
+    );
+  }
+}
+
+class TeacherAssessment {
+  final String id;
+  final String courseId;
+  final String courseCode;
+  final String courseName;
+  final String name;
+  final double maxScore;
+  final String status;
+
+  const TeacherAssessment({
+    required this.id,
+    required this.courseId,
+    required this.courseCode,
+    required this.courseName,
+    required this.name,
+    required this.maxScore,
+    required this.status,
+  });
+
+  factory TeacherAssessment.fromMap(String id, Map<String, dynamic> data) {
+    return TeacherAssessment(
+      id: id,
+      courseId: data['courseId'] as String? ?? '',
+      courseCode: data['courseCode'] as String? ?? '',
+      courseName: data['courseName'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      maxScore: (data['maxScore'] as num?)?.toDouble() ?? 0,
+      status: data['status'] as String? ?? 'draft',
+    );
+  }
+}
+
+class TeacherMark {
+  final String id;
+  final String studentId;
+  final double score;
+  final double maxScore;
+  final bool published;
+
+  const TeacherMark({
+    required this.id,
+    required this.studentId,
+    required this.score,
+    required this.maxScore,
+    required this.published,
+  });
+
+  factory TeacherMark.fromMap(String id, Map<String, dynamic> data) {
+    return TeacherMark(
+      id: id,
+      studentId: data['studentId'] as String? ?? '',
+      score: (data['score'] as num?)?.toDouble() ?? 0,
+      maxScore: (data['maxScore'] as num?)?.toDouble() ?? 0,
+      published: data['published'] as bool? ?? false,
+    );
+  }
+}
+
+String? _nullableText(dynamic value) {
+  if (value is! String) {
+    return null;
+  }
+
+  final result = value.trim();
+
+  return result.isEmpty ? null : result;
+}
+
+DateTime? _date(dynamic value) {
+  if (value is Timestamp) {
+    return value.toDate();
+  }
+
+  return null;
 }
 
 class TeacherAcademicServiceException implements Exception {

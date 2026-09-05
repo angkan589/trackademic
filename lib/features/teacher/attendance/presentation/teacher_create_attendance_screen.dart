@@ -1,7 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
-import 'package:trackademic/features/teacher/attendance/presentation/teacher_live_attendance_screen.dart';
 
 class TeacherCreateAttendanceScreen extends StatefulWidget {
   final bool showBackButton;
@@ -15,693 +17,628 @@ class TeacherCreateAttendanceScreen extends StatefulWidget {
 
 class _TeacherCreateAttendanceScreenState
     extends State<TeacherCreateAttendanceScreen> {
-  final _formKey = GlobalKey<FormState>();
+  static const _service = TeacherAcademicService();
+
+  late Future<_AttendancePageData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    _future = _load();
+  }
+
+  Future<_AttendancePageData> _load() async {
+    final courses = await _service.loadMyCourses();
+
+    final sessions = await _service.loadAttendanceSessions();
+
+    return _AttendancePageData(courses: courses, sessions: sessions);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_AttendancePageData>(
+      future: _future,
+      builder: (context, snapshot) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.large),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (widget.showBackButton)
+                        IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Attendance',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              'Create and monitor real attendance sessions.',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Refresh',
+                        onPressed: () {
+                          setState(_reload);
+                        },
+                        icon: const Icon(Icons.refresh_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.large),
+                  if (snapshot.connectionState != ConnectionState.done)
+                    const Center(child: CircularProgressIndicator())
+                  else if (snapshot.hasError)
+                    Text(snapshot.error.toString())
+                  else
+                    _buildContent(snapshot.data!),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildContent(_AttendancePageData data) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FilledButton.icon(
+          onPressed: data.courses.isEmpty
+              ? null
+              : () async {
+                  final created = await showDialog<bool>(
+                    context: context,
+                    builder: (context) =>
+                        _CreateSessionDialog(courses: data.courses),
+                  );
+
+                  if (created == true) {
+                    setState(_reload);
+                  }
+                },
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Create attendance session'),
+        ),
+        if (data.courses.isEmpty) ...[
+          const SizedBox(height: AppSpacing.medium),
+          const Text(
+            'Create a course before starting attendance.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.large),
+        if (data.sessions.isEmpty)
+          const _EmptyAttendance()
+        else
+          for (final session in data.sessions) ...[
+            _SessionCard(
+              session: session,
+              onView: () => _showSession(session),
+              onClose: session.status == 'active'
+                  ? () => _closeSession(session)
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.regular),
+          ],
+      ],
+    );
+  }
+
+  Future<void> _showSession(TeacherAttendanceSession session) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _AttendanceMonitorDialog(session: session),
+    );
+  }
+
+  Future<void> _closeSession(TeacherAttendanceSession session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Close attendance?'),
+        content: const Text(
+          'Students who have not submitted attendance will be recorded as absent.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await _service.closeAttendanceSession(session.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(_reload);
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+class _CreateSessionDialog extends StatefulWidget {
+  final List<TeacherCourse> courses;
+
+  const _CreateSessionDialog({required this.courses});
+
+  @override
+  State<_CreateSessionDialog> createState() => _CreateSessionDialogState();
+}
+
+class _CreateSessionDialogState extends State<_CreateSessionDialog> {
+  static const _service = TeacherAcademicService();
+
+  late String _courseId;
+
+  final _durationController = TextEditingController(text: '15');
+
+  final _passcodeController = TextEditingController();
+
+  final _latitudeController = TextEditingController();
+
+  final _longitudeController = TextEditingController();
 
   final _radiusController = TextEditingController(text: '100');
-  final _customDurationController = TextEditingController();
 
-  String _selectedClass = 'CSE 321 · Computer Architecture';
-  String _selectedBatch = '22 Batch · Section A';
-  String _selectedType = 'Theory';
+  String _classType = 'Theory';
 
-  int _duration = 15;
-  bool _usingCustomDuration = false;
-
-  bool _requireGps = true;
-  bool _requirePasscode = true;
+  bool _requiresPasscode = true;
+  bool _requiresGps = false;
   bool _allowLateEntry = false;
+  bool _submitting = false;
 
-  String _passcode = '482731';
+  @override
+  void initState() {
+    super.initState();
 
-  static const _classes = [
-    'CSE 315 · Software Engineering',
-    'CSE 321 · Computer Architecture',
-    'CSE 333 · Computer Networks',
-  ];
+    _courseId = widget.courses.first.id;
 
-  static const _batches = [
-    '22 Batch · Section A',
-    '22 Batch · Section B',
-    '23 Batch · Section A',
-    '23 Batch · Section B',
-  ];
+    _generatePasscode();
+  }
 
-  static const _classTypes = ['Theory', 'Practical', 'Makeup'];
+  void _generatePasscode() {
+    final value = 100000 + Random.secure().nextInt(900000);
+
+    _passcodeController.text = value.toString();
+  }
 
   @override
   void dispose() {
+    _durationController.dispose();
+    _passcodeController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
     _radiusController.dispose();
-    _customDurationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+    return AlertDialog(
+      title: const Text('Create attendance session'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
-              const SizedBox(height: AppSpacing.large),
-              _buildInformationBanner(),
-              const SizedBox(height: AppSpacing.large),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth >= 820) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 6, child: _buildSetupCard()),
-                        const SizedBox(width: AppSpacing.regular),
-                        Expanded(flex: 4, child: _buildPreviewCard()),
-                      ],
-                    );
+              DropdownButtonFormField<String>(
+                initialValue: _courseId,
+                decoration: const InputDecoration(labelText: 'Course'),
+                items: widget.courses
+                    .map(
+                      (course) => DropdownMenuItem(
+                        value: course.id,
+                        child: Text('${course.code} · ${course.name}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _courseId = value;
+                    });
                   }
-
-                  return Column(
-                    children: [
-                      _buildSetupCard(),
-                      const SizedBox(height: AppSpacing.regular),
-                      _buildPreviewCard(),
-                    ],
-                  );
+                },
+              ),
+              const SizedBox(height: AppSpacing.medium),
+              DropdownButtonFormField<String>(
+                initialValue: _classType,
+                decoration: const InputDecoration(labelText: 'Class type'),
+                items: const [
+                  DropdownMenuItem(value: 'Theory', child: Text('Theory')),
+                  DropdownMenuItem(
+                    value: 'Practical',
+                    child: Text('Practical'),
+                  ),
+                  DropdownMenuItem(value: 'Makeup', child: Text('Makeup')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _classType = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: AppSpacing.medium),
+              TextField(
+                controller: _durationController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Duration (minutes)',
+                ),
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Require passcode'),
+                value: _requiresPasscode,
+                onChanged: (value) {
+                  setState(() {
+                    _requiresPasscode = value;
+                  });
+                },
+              ),
+              if (_requiresPasscode)
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _passcodeController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Passcode',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Generate',
+                      onPressed: _generatePasscode,
+                      icon: const Icon(Icons.autorenew_rounded),
+                    ),
+                  ],
+                ),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Require GPS verification'),
+                value: _requiresGps,
+                onChanged: (value) {
+                  setState(() {
+                    _requiresGps = value;
+                  });
+                },
+              ),
+              if (_requiresGps) ...[
+                TextField(
+                  controller: _latitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Latitude'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextField(
+                  controller: _longitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Longitude'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextField(
+                  controller: _radiusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Allowed radius (meters)',
+                  ),
+                ),
+              ],
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Allow late entry'),
+                value: _allowLateEntry,
+                onChanged: (value) {
+                  setState(() {
+                    _allowLateEntry = value;
+                  });
                 },
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.showBackButton) ...[
-          IconButton(
-            tooltip: 'Back',
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          const SizedBox(width: AppSpacing.small),
-        ],
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Create Attendance',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SizedBox(height: AppSpacing.small),
-              Text(
-                'Start a secure GPS and passcode-based attendance session.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
-              ),
-            ],
-          ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
         ),
       ],
     );
   }
 
-  Widget _buildInformationBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.regular),
-      decoration: BoxDecoration(
-        color: AppColors.informationBackground,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.security_rounded, color: AppColors.primary),
-          SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Text(
-              'Students must satisfy the enabled verification methods before '
-              'their attendance is accepted.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _submit() async {
+    final duration = int.tryParse(_durationController.text);
 
-  Widget _buildSetupCard() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Session setup',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.large),
-
-            // Course
-            _buildDropdown(
-              label: 'Course',
-              icon: Icons.menu_book_rounded,
-              value: _selectedClass,
-              items: _classes,
-              onChanged: (value) {
-                setState(() {
-                  _selectedClass = value;
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.regular),
-
-            // Batch and section
-            _buildDropdown(
-              label: 'Batch and section',
-              icon: Icons.groups_rounded,
-              value: _selectedBatch,
-              items: _batches,
-              onChanged: (value) {
-                setState(() {
-                  _selectedBatch = value;
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.regular),
-
-            // Class type
-            _buildDropdown(
-              label: 'Class type',
-              icon: Icons.category_outlined,
-              value: _selectedType,
-              items: _classTypes,
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value;
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.large),
-
-            // Duration
-            const Text(
-              'Attendance duration',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.small),
-            Wrap(
-              spacing: AppSpacing.small,
-              runSpacing: AppSpacing.small,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final duration in [5, 10, 15, 20, 30])
-                  ChoiceChip(
-                    label: Text('$duration min'),
-                    selected: !_usingCustomDuration && _duration == duration,
-                    onSelected: (selected) {
-                      if (!selected) {
-                        return;
-                      }
-
-                      setState(() {
-                        _usingCustomDuration = false;
-                        _duration = duration;
-                        _customDurationController.clear();
-                      });
-                    },
-                  ),
-                SizedBox(
-                  width: 190,
-                  child: TextFormField(
-                    controller: _customDurationController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Custom time',
-                      hintText: 'Example: 1',
-                      suffixText: 'min',
-                      prefixIcon: Icon(Icons.edit_rounded),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onTap: () {
-                      if (!_usingCustomDuration) {
-                        setState(() {
-                          _usingCustomDuration = true;
-                        });
-                      }
-                    },
-                    onChanged: (value) {
-                      final customDuration = int.tryParse(value.trim());
-
-                      setState(() {
-                        _usingCustomDuration = true;
-
-                        if (customDuration != null &&
-                            customDuration >= 1 &&
-                            customDuration <= 180) {
-                          _duration = customDuration;
-                        }
-                      });
-                    },
-                    validator: (value) {
-                      if (!_usingCustomDuration) {
-                        return null;
-                      }
-
-                      final customDuration = int.tryParse(value?.trim() ?? '');
-
-                      if (customDuration == null ||
-                          customDuration < 1 ||
-                          customDuration > 180) {
-                        return 'Enter 1–180 minutes';
-                      }
-
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.large),
-            const Divider(),
-            const SizedBox(height: AppSpacing.medium),
-
-            // Verification methods
-            const Text(
-              'Verification methods',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.small),
-
-            // GPS
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              secondary: const Icon(Icons.my_location_rounded),
-              title: const Text(
-                'Require GPS location',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: const Text(
-                'Students must be inside the allowed attendance area.',
-              ),
-              value: _requireGps,
-              onChanged: (value) {
-                setState(() {
-                  _requireGps = value;
-                });
-              },
-            ),
-            if (_requireGps) ...[
-              const SizedBox(height: AppSpacing.small),
-              TextFormField(
-                controller: _radiusController,
-                keyboardType: TextInputType.number,
-                onChanged: (_) {
-                  setState(() {});
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Allowed radius in metres',
-                  prefixIcon: Icon(Icons.radar_rounded),
-                  suffixText: 'metres',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (!_requireGps) {
-                    return null;
-                  }
-
-                  final radius = int.tryParse(value?.trim() ?? '');
-
-                  if (radius == null || radius < 10) {
-                    return 'Enter a radius of at least 10 metres';
-                  }
-
-                  if (radius > 5000) {
-                    return 'Radius cannot exceed 5000 metres';
-                  }
-
-                  return null;
-                },
-              ),
-            ],
-            const SizedBox(height: AppSpacing.small),
-
-            // Passcode
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              secondary: const Icon(Icons.password_rounded),
-              title: const Text(
-                'Require attendance passcode',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: const Text(
-                'Students must enter the generated six-digit code.',
-              ),
-              value: _requirePasscode,
-              onChanged: (value) {
-                setState(() {
-                  _requirePasscode = value;
-                });
-              },
-            ),
-
-            // Late entry
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              secondary: const Icon(Icons.more_time_rounded),
-              title: const Text(
-                'Allow late entry',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: const Text('Late students will be marked separately.'),
-              value: _allowLateEntry,
-              onChanged: (value) {
-                setState(() {
-                  _allowLateEntry = value;
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.large),
-
-            // Start button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _startAttendance,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.medium),
-                  child: Text('Start attendance'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreviewCard() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Session preview',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.large),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.regular),
-            decoration: BoxDecoration(
-              color: AppColors.informationBackground,
-              borderRadius: BorderRadius.circular(AppRadius.medium),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.how_to_reg_rounded,
-                  color: AppColors.primary,
-                  size: 42,
-                ),
-                const SizedBox(height: AppSpacing.medium),
-                Text(
-                  _selectedClass.split(' · ').first,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.extraSmall),
-                Text(
-                  _selectedClass.split(' · ').last,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.large),
-          _PreviewItem(
-            icon: Icons.groups_rounded,
-            label: 'Students',
-            value: _selectedBatch,
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          _PreviewItem(
-            icon: Icons.category_outlined,
-            label: 'Class type',
-            value: _selectedType,
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          _PreviewItem(
-            icon: Icons.timer_outlined,
-            label: 'Duration',
-            value: '$_duration minutes',
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          _PreviewItem(
-            icon: Icons.my_location_rounded,
-            label: 'GPS verification',
-            value: _requireGps
-                ? '${_radiusController.text.trim()} metre radius'
-                : 'Disabled',
-          ),
-          const SizedBox(height: AppSpacing.medium),
-          _PreviewItem(
-            icon: Icons.password_rounded,
-            label: 'Passcode',
-            value: _requirePasscode ? _passcode : 'Disabled',
-          ),
-          if (_requirePasscode) ...[
-            const SizedBox(height: AppSpacing.medium),
-            OutlinedButton.icon(
-              onPressed: _generatePasscode,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Generate new code'),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.large),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.medium),
-            decoration: BoxDecoration(
-              color: AppColors.successBackground,
-              borderRadius: BorderRadius.circular(AppRadius.medium),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.lock_outline_rounded, color: AppColors.success),
-                SizedBox(width: AppSpacing.small),
-                Expanded(
-                  child: Text(
-                    'The session will remain inactive until you press Start.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required IconData icon,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String> onChanged,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: const OutlineInputBorder(),
-      ),
-      items: items
-          .map(
-            (item) => DropdownMenuItem<String>(value: item, child: Text(item)),
-          )
-          .toList(),
-      onChanged: (newValue) {
-        if (newValue != null) {
-          onChanged(newValue);
-        }
-      },
-    );
-  }
-
-  void _generatePasscode() {
-    final generatedNumber =
-        100000 + DateTime.now().millisecondsSinceEpoch.remainder(900000);
-
-    setState(() {
-      _passcode = generatedNumber.toString();
-    });
-  }
-
-  Future<void> _startAttendance() async {
-    if (!_formKey.currentState!.validate()) {
+    if (duration == null) {
       return;
     }
 
-    if (!_requireGps && !_requirePasscode) {
+    final latitude = _requiresGps
+        ? double.tryParse(_latitudeController.text)
+        : null;
+
+    final longitude = _requiresGps
+        ? double.tryParse(_longitudeController.text)
+        : null;
+
+    final radius = _requiresGps
+        ? double.tryParse(_radiusController.text)
+        : null;
+
+    if (_requiresGps &&
+        (latitude == null || longitude == null || radius == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Enable at least one verification method.'),
+          content: Text('Enter valid GPS coordinates and radius.'),
         ),
       );
 
       return;
     }
 
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          icon: const Icon(
-            Icons.play_circle_outline_rounded,
-            color: AppColors.primary,
-            size: 42,
-          ),
-          title: const Text('Start attendance?'),
-          content: Text(
-            'Attendance for $_selectedClass will remain open for '
-            '$_duration minutes.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
+    setState(() {
+      _submitting = true;
+    });
 
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) {
-                      return Scaffold(
-                        backgroundColor: AppColors.background,
-                        body: SafeArea(
-                          child: TeacherLiveAttendanceScreen(
-                            course: _selectedClass,
-                            batch: _selectedBatch,
-                            classType: _selectedType,
-                            durationMinutes: _duration,
-                            passcode: _requirePasscode ? _passcode : null,
-                            gpsRadius: _requireGps
-                                ? int.parse(_radiusController.text.trim())
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-              child: const Text('Start now'),
-            ),
-          ],
-        );
-      },
-    );
+    try {
+      await _service.createAttendanceSession(
+        courseId: _courseId,
+        classType: _classType,
+        durationMinutes: duration,
+        requiresPasscode: _requiresPasscode,
+        passcode: _requiresPasscode ? _passcodeController.text.trim() : null,
+        requiresGps: _requiresGps,
+        latitude: latitude,
+        longitude: longitude,
+        radiusMeters: radius,
+        allowLateEntry: _allowLateEntry,
+      );
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
   }
 }
 
-class _PreviewItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _AttendanceMonitorDialog extends StatelessWidget {
+  static const _service = TeacherAcademicService();
 
-  const _PreviewItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  final TeacherAttendanceSession session;
+
+  const _AttendanceMonitorDialog({required this.session});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: AppColors.textTertiary, size: 20),
-        const SizedBox(width: AppSpacing.small),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textTertiary,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.extraSmall),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
+    return AlertDialog(
+      title: Text('${session.courseCode} attendance'),
+      content: SizedBox(
+        width: 650,
+        height: 430,
+        child: FutureBuilder<List<EnrolledStudent>>(
+          future: _service.loadCourseStudents(session.courseId),
+          builder: (context, studentSnapshot) {
+            if (!studentSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return FutureBuilder<List<TeacherAttendanceRecord>>(
+              future: _service.loadAttendanceRecords(session),
+              builder: (context, recordSnapshot) {
+                if (!recordSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final records = {
+                  for (final record in recordSnapshot.data!)
+                    record.studentId: record,
+                };
+
+                final students = studentSnapshot.data!;
+
+                if (students.isEmpty) {
+                  return const Center(child: Text('No students enrolled.'));
+                }
+
+                return ListView.separated(
+                  itemCount: students.length,
+                  separatorBuilder: (_, _) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final student = students[index];
+
+                    final record = records[student.uid];
+
+                    final status = record?.status ?? 'pending';
+
+                    return ListTile(
+                      leading: Icon(
+                        status == 'present'
+                            ? Icons.check_circle_rounded
+                            : status == 'absent'
+                            ? Icons.cancel_rounded
+                            : Icons.schedule_rounded,
+                        color: status == 'present'
+                            ? AppColors.success
+                            : status == 'absent'
+                            ? AppColors.danger
+                            : AppColors.textTertiary,
+                      ),
+                      title: Text(student.displayName),
+                      subtitle: Text(student.institutionId),
+                      trailing: Text(status.toUpperCase()),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
         ),
       ],
     );
   }
+}
+
+class _SessionCard extends StatelessWidget {
+  final TeacherAttendanceSession session;
+  final VoidCallback onView;
+  final VoidCallback? onClose;
+
+  const _SessionCard({
+    required this.session,
+    required this.onView,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.large),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${session.courseCode} · ${session.courseName}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '${session.classType} · ${session.durationMinutes} min · ${session.status}',
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton(onPressed: onView, child: const Text('Monitor')),
+            if (onClose != null) ...[
+              const SizedBox(width: AppSpacing.small),
+              FilledButton(
+                onPressed: onClose,
+                child: const Text('Close session'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyAttendance extends StatelessWidget {
+  const _EmptyAttendance();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.extraLarge),
+        child: Text(
+          'No attendance sessions have been created.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendancePageData {
+  final List<TeacherCourse> courses;
+  final List<TeacherAttendanceSession> sessions;
+
+  const _AttendancePageData({required this.courses, required this.sessions});
 }

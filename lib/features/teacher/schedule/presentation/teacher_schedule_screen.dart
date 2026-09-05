@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
-import 'package:trackademic/features/teacher/schedule/presentation/teacher_add_class_screen.dart';
-import 'package:trackademic/features/teacher/attendance/presentation/teacher_create_attendance_screen.dart';
 
 class TeacherScheduleScreen extends StatefulWidget {
   const TeacherScheduleScreen({super.key});
@@ -12,664 +11,391 @@ class TeacherScheduleScreen extends StatefulWidget {
 }
 
 class _TeacherScheduleScreenState extends State<TeacherScheduleScreen> {
-  bool _showWeekView = false;
-  int _selectedDay = 4;
+  static const _service = TeacherAcademicService();
 
-  static const _days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+  late Future<_SchedulePageData> _future;
 
-  static const _classes = [
-    _ScheduleEntry(
-      dayIndex: 0,
-      time: '9:00 AM',
-      endTime: '9:50 AM',
-      courseCode: 'CSE 321',
-      courseName: 'Computer Architecture',
-      batch: '22 Batch · Section A',
-      classType: 'Theory',
-      room: 'Room 302',
-      source: 'Official',
-      status: 'Scheduled',
-      icon: Icons.menu_book_rounded,
-    ),
-    _ScheduleEntry(
-      dayIndex: 1,
-      time: '11:00 AM',
-      endTime: '12:40 PM',
-      courseCode: 'CSE 321',
-      courseName: 'Computer Architecture',
-      batch: '22 Batch · Section A',
-      classType: 'Practical',
-      room: 'Hardware Lab',
-      source: 'Official',
-      status: 'Scheduled',
-      icon: Icons.science_outlined,
-    ),
-    _ScheduleEntry(
-      dayIndex: 2,
-      time: '2:00 PM',
-      endTime: '2:50 PM',
-      courseCode: 'CSE 333',
-      courseName: 'Computer Networks',
-      batch: '23 Batch · Section B',
-      classType: 'Theory',
-      room: 'Room 204',
-      source: 'Manual',
-      status: 'Scheduled',
-      icon: Icons.router_outlined,
-    ),
-    _ScheduleEntry(
-      dayIndex: 3,
-      time: '10:00 AM',
-      endTime: '11:40 AM',
-      courseCode: 'CSE 315',
-      courseName: 'Software Engineering',
-      batch: '22 Batch · Section B',
-      classType: 'Practical',
-      room: 'Software Lab 2',
-      source: 'Rescheduled',
-      status: 'Rescheduled',
-      icon: Icons.computer_rounded,
-    ),
-    _ScheduleEntry(
-      dayIndex: 4,
-      time: '9:00 AM',
-      endTime: '9:50 AM',
-      courseCode: 'CSE 315',
-      courseName: 'Software Engineering',
-      batch: '22 Batch · Section A',
-      classType: 'Theory',
-      room: 'Room 204',
-      source: 'Official',
-      status: 'Completed',
-      icon: Icons.developer_board_rounded,
-    ),
-    _ScheduleEntry(
-      dayIndex: 4,
-      time: '11:30 AM',
-      endTime: '12:20 PM',
-      courseCode: 'CSE 321',
-      courseName: 'Computer Architecture',
-      batch: '22 Batch · Section A',
-      classType: 'Theory',
-      room: 'Room 302',
-      source: 'Official',
-      status: 'Next',
-      icon: Icons.memory_rounded,
-    ),
-    _ScheduleEntry(
-      dayIndex: 4,
-      time: '2:00 PM',
-      endTime: '3:40 PM',
-      courseCode: 'CSE 333',
-      courseName: 'Computer Networks',
-      batch: '23 Batch · Section B',
-      classType: 'Practical',
-      room: 'Network Lab',
-      source: 'Manual',
-      status: 'Upcoming',
-      icon: Icons.lan_rounded,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    _future = _load();
+  }
+
+  Future<_SchedulePageData> _load() async {
+    return _SchedulePageData(
+      courses: await _service.loadMyCourses(),
+      schedules: await _service.loadMySchedules(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: AppSpacing.large),
-              _buildSourceInformation(),
-              const SizedBox(height: AppSpacing.large),
-              _buildViewControls(),
-              const SizedBox(height: AppSpacing.large),
-              if (_showWeekView) _buildWeekView() else _buildDayView(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'My Schedule',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SizedBox(height: AppSpacing.small),
-              Text(
-                'View official classes and manage your own classes.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: AppSpacing.medium),
-        FilledButton.icon(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const Scaffold(
-                  backgroundColor: AppColors.background,
-                  body: SafeArea(child: TeacherAddClassScreen()),
-                ),
-              ),
-            );
-          },
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add class'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSourceInformation() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.regular),
-      decoration: BoxDecoration(
-        color: AppColors.informationBackground,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.primary),
-          SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Text(
-              'Official classes are assigned by the coordinator. '
-              'Manual classes are created by you and can be edited or deleted.',
-              style: TextStyle(color: AppColors.textSecondary, height: 1.45),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildViewControls() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Wrap(
-                spacing: AppSpacing.small,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Day'),
-                    avatar: const Icon(Icons.view_day_outlined, size: 18),
-                    selected: !_showWeekView,
-                    onSelected: (_) {
-                      setState(() => _showWeekView = false);
-                    },
-                  ),
-                  ChoiceChip(
-                    label: const Text('Week'),
-                    avatar: const Icon(
-                      Icons.calendar_view_week_rounded,
-                      size: 18,
-                    ),
-                    selected: _showWeekView,
-                    onSelected: (_) {
-                      setState(() => _showWeekView = true);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: () => _showMessage('Previous week selected.'),
-              tooltip: 'Previous week',
-              icon: const Icon(Icons.chevron_left_rounded),
-            ),
-            const Text(
-              '3–7 August 2026',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            IconButton(
-              onPressed: () => _showMessage('Next week selected.'),
-              tooltip: 'Next week',
-              icon: const Icon(Icons.chevron_right_rounded),
-            ),
-          ],
-        ),
-        if (!_showWeekView) ...[
-          const SizedBox(height: AppSpacing.regular),
-          SizedBox(
-            height: 46,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _days.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(width: AppSpacing.small),
-              itemBuilder: (context, index) {
-                return ChoiceChip(
-                  label: Text(_days[index]),
-                  selected: _selectedDay == index,
-                  onSelected: (_) {
-                    setState(() => _selectedDay = index);
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildDayView() {
-    final dayClasses = _classes
-        .where((schedule) => schedule.dayIndex == _selectedDay)
-        .toList();
-
-    if (dayClasses.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.extraLarge),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.large),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Column(
-          children: [
-            Icon(
-              Icons.event_available_outlined,
-              size: 54,
-              color: AppColors.textTertiary,
-            ),
-            SizedBox(height: AppSpacing.medium),
-            Text(
-              'No classes scheduled',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        for (int index = 0; index < dayClasses.length; index++) ...[
-          _ScheduleCard(schedule: dayClasses[index], onAction: _showMessage),
-          if (index < dayClasses.length - 1)
-            const SizedBox(height: AppSpacing.medium),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildWeekView() {
-    return SizedBox(
-      height: 510,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _days.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.medium),
-        itemBuilder: (context, dayIndex) {
-          final dayClasses = _classes
-              .where((schedule) => schedule.dayIndex == dayIndex)
-              .toList();
-
-          return SizedBox(
-            width: 290,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.medium),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.large),
-                border: Border.all(
-                  color: dayIndex == 4 ? AppColors.primary : AppColors.border,
-                ),
-              ),
+    return FutureBuilder<_SchedulePageData>(
+      future: _future,
+      builder: (context, snapshot) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.large),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _days[dayIndex],
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Schedule',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              'Create and manage your class schedule.',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (snapshot.hasData)
+                        FilledButton.icon(
+                          onPressed: snapshot.data!.courses.isEmpty
+                              ? null
+                              : () => _openEditor(snapshot.data!.courses),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Add class'),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: AppSpacing.medium),
-                  if (dayClasses.isEmpty)
-                    const Text(
-                      'No classes',
-                      style: TextStyle(color: AppColors.textTertiary),
+                  const SizedBox(height: AppSpacing.large),
+                  if (snapshot.connectionState != ConnectionState.done)
+                    const Center(child: CircularProgressIndicator())
+                  else if (snapshot.hasError)
+                    Text(snapshot.error.toString())
+                  else if (snapshot.data!.schedules.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(AppSpacing.extraLarge),
+                        child: Text('No classes scheduled yet.'),
+                      ),
                     )
                   else
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: dayClasses.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: AppSpacing.small),
-                        itemBuilder: (context, index) {
-                          return _WeekClassCard(schedule: dayClasses[index]);
-                        },
+                    for (final schedule in snapshot.data!.schedules) ...[
+                      _ScheduleCard(
+                        schedule: schedule,
+                        onEdit: () => _openEditor(
+                          snapshot.data!.courses,
+                          existing: schedule,
+                        ),
+                        onDelete: () => _delete(schedule),
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.regular),
+                    ],
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  Future<void> _openEditor(
+    List<TeacherCourse> courses, {
+    TeacherScheduleEntry? existing,
+  }) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          _ScheduleEditorDialog(courses: courses, existing: existing),
+    );
+
+    if (changed == true) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _delete(TeacherScheduleEntry schedule) async {
+    try {
+      await _service.deleteSchedule(schedule.id);
+
+      if (mounted) {
+        setState(_reload);
+      }
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+class _ScheduleEditorDialog extends StatefulWidget {
+  final List<TeacherCourse> courses;
+  final TeacherScheduleEntry? existing;
+
+  const _ScheduleEditorDialog({required this.courses, this.existing});
+
+  @override
+  State<_ScheduleEditorDialog> createState() => _ScheduleEditorDialogState();
+}
+
+class _ScheduleEditorDialogState extends State<_ScheduleEditorDialog> {
+  static const _service = TeacherAcademicService();
+
+  static const _days = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+
+  late String _courseId;
+  late int _dayIndex;
+  late String _classType;
+
+  late final TextEditingController _startController;
+
+  late final TextEditingController _endController;
+
+  late final TextEditingController _roomController;
+
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final existing = widget.existing;
+
+    _courseId = existing?.courseId ?? widget.courses.first.id;
+
+    _dayIndex = existing?.dayIndex ?? 0;
+
+    _classType = existing?.classType ?? 'Theory';
+
+    _startController = TextEditingController(
+      text: existing?.startTime ?? '09:00',
+    );
+
+    _endController = TextEditingController(text: existing?.endTime ?? '09:50');
+
+    _roomController = TextEditingController(text: existing?.room ?? '');
+  }
+
+  @override
+  void dispose() {
+    _startController.dispose();
+    _endController.dispose();
+    _roomController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existing == null ? 'Add class' : 'Edit class'),
+      content: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _courseId,
+              decoration: const InputDecoration(labelText: 'Course'),
+              items: widget.courses
+                  .map(
+                    (course) => DropdownMenuItem(
+                      value: course.id,
+                      child: Text('${course.code} · ${course.name}'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  _courseId = value;
+                }
+              },
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            DropdownButtonFormField<int>(
+              initialValue: _dayIndex,
+              decoration: const InputDecoration(labelText: 'Day'),
+              items: List.generate(
+                _days.length,
+                (index) =>
+                    DropdownMenuItem(value: index, child: Text(_days[index])),
+              ),
+              onChanged: (value) {
+                if (value != null) {
+                  _dayIndex = value;
+                }
+              },
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            TextField(
+              controller: _startController,
+              decoration: const InputDecoration(
+                labelText: 'Start time (HH:MM)',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            TextField(
+              controller: _endController,
+              decoration: const InputDecoration(labelText: 'End time (HH:MM)'),
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            TextField(
+              controller: _roomController,
+              decoration: const InputDecoration(labelText: 'Room'),
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            DropdownButtonFormField<String>(
+              initialValue: _classType,
+              decoration: const InputDecoration(labelText: 'Class type'),
+              items: const [
+                DropdownMenuItem(value: 'Theory', child: Text('Theory')),
+                DropdownMenuItem(value: 'Practical', child: Text('Practical')),
+                DropdownMenuItem(value: 'Makeup', child: Text('Makeup')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  _classType = value;
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _submitting = true;
+    });
+
+    try {
+      final existing = widget.existing;
+
+      if (existing == null) {
+        await _service.createSchedule(
+          courseId: _courseId,
+          dayIndex: _dayIndex,
+          day: _days[_dayIndex],
+          startTime: _startController.text.trim(),
+          endTime: _endController.text.trim(),
+          room: _roomController.text.trim(),
+          classType: _classType,
+        );
+      } else {
+        await _service.updateSchedule(
+          scheduleId: existing.id,
+          courseId: _courseId,
+          dayIndex: _dayIndex,
+          day: _days[_dayIndex],
+          startTime: _startController.text.trim(),
+          endTime: _endController.text.trim(),
+          room: _roomController.text.trim(),
+          classType: _classType,
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } on TeacherAcademicServiceException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
   }
 }
 
 class _ScheduleCard extends StatelessWidget {
-  final _ScheduleEntry schedule;
-  final ValueChanged<String> onAction;
+  final TeacherScheduleEntry schedule;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _ScheduleCard({required this.schedule, required this.onAction});
+  const _ScheduleCard({
+    required this.schedule,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 82,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  schedule.time,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.extraSmall),
-                Text(
-                  schedule.endTime,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.informationBackground,
-              borderRadius: BorderRadius.circular(AppRadius.medium),
-            ),
-            child: Icon(schedule.icon, color: AppColors.primary),
-          ),
-          const SizedBox(width: AppSpacing.medium),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${schedule.courseCode} · ${schedule.classType}',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.extraSmall),
-                Text(
-                  schedule.courseName,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: AppSpacing.small),
-                Wrap(
-                  spacing: AppSpacing.medium,
-                  runSpacing: AppSpacing.small,
-                  children: [
-                    _Information(
-                      icon: Icons.groups_rounded,
-                      text: schedule.batch,
-                    ),
-                    _Information(
-                      icon: Icons.location_on_outlined,
-                      text: schedule.room,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.medium),
-                Wrap(
-                  spacing: AppSpacing.small,
-                  runSpacing: AppSpacing.small,
-                  children: [
-                    _Label(
-                      text: schedule.source,
-                      color: schedule.source == 'Official'
-                          ? AppColors.primary
-                          : AppColors.warning,
-                      background: schedule.source == 'Official'
-                          ? AppColors.informationBackground
-                          : AppColors.warningBackground,
-                    ),
-                    _Label(
-                      text: schedule.status,
-                      color: schedule.status == 'Completed'
-                          ? AppColors.success
-                          : AppColors.primary,
-                      background: schedule.status == 'Completed'
-                          ? AppColors.successBackground
-                          : AppColors.informationBackground,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'attendance') {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const Scaffold(
-                      backgroundColor: AppColors.background,
-                      body: SafeArea(child: TeacherCreateAttendanceScreen()),
-                    ),
-                  ),
-                );
-              } else if (value == 'edit') {
-                onAction('Opening Edit Class preview.');
-              } else {
-                onAction('Opening class details preview.');
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'attendance',
-                child: Text('Start attendance'),
-              ),
-              const PopupMenuItem(
-                value: 'details',
-                child: Text('View details'),
-              ),
-              if (schedule.source != 'Official')
-                const PopupMenuItem(value: 'edit', child: Text('Edit class')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeekClassCard extends StatelessWidget {
-  final _ScheduleEntry schedule;
-
-  const _WeekClassCard({required this.schedule});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.medium),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${schedule.time}–${schedule.endTime}',
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.small),
-          Text(
-            schedule.courseCode,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.extraSmall),
-          Text(
-            '${schedule.classType} · ${schedule.batch}',
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.extraSmall),
-          Text(
-            schedule.room,
-            style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Information extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _Information({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 17, color: AppColors.textTertiary),
-        const SizedBox(width: AppSpacing.extraSmall),
-        Text(
-          text,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+      child: ListTile(
+        leading: const Icon(Icons.calendar_month_rounded),
+        title: Text(
+          '${schedule.day} · ${schedule.startTime}-${schedule.endTime}',
         ),
-      ],
-    );
-  }
-}
-
-class _Label extends StatelessWidget {
-  final String text;
-  final Color color;
-  final Color background;
-
-  const _Label({
-    required this.text,
-    required this.color,
-    required this.background,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.small,
-        vertical: AppSpacing.extraSmall,
-      ),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+        subtitle: Text(
+          '${schedule.courseCode} · ${schedule.courseName}\n${schedule.classType} · ${schedule.room}',
+        ),
+        isThreeLine: true,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Edit',
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              tooltip: 'Delete',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ScheduleEntry {
-  final int dayIndex;
-  final String time;
-  final String endTime;
-  final String courseCode;
-  final String courseName;
-  final String batch;
-  final String classType;
-  final String room;
-  final String source;
-  final String status;
-  final IconData icon;
+class _SchedulePageData {
+  final List<TeacherCourse> courses;
+  final List<TeacherScheduleEntry> schedules;
 
-  const _ScheduleEntry({
-    required this.dayIndex,
-    required this.time,
-    required this.endTime,
-    required this.courseCode,
-    required this.courseName,
-    required this.batch,
-    required this.classType,
-    required this.room,
-    required this.source,
-    required this.status,
-    required this.icon,
-  });
+  const _SchedulePageData({required this.courses, required this.schedules});
 }
