@@ -18,6 +18,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _reload();
+  }
+
+  void _reload() {
     _profileFuture = _authService.loadCurrentProfile();
   }
 
@@ -35,7 +39,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
             message:
                 snapshot.error?.toString() ??
                 'Your profile could not be loaded.',
-            onRetry: _retry,
+            onRetry: () {
+              setState(_reload);
+            },
           );
         }
 
@@ -53,18 +59,37 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Profile',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.small),
-              const Text(
-                'Your account and academic information from Trackademic.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Profile',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: AppSpacing.small),
+                        Text(
+                          'Your Trackademic account information.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _editProfile(profile),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit profile'),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpacing.large),
               _ProfileSummaryCard(profile: profile),
@@ -87,57 +112,57 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
 
   Widget _buildInformationSection(AppUserProfile profile) {
     final personal = _SectionCard(
-      title: 'Personal information',
+      title: 'Account information',
       subtitle: 'Information stored in your Trackademic account.',
       icon: Icons.person_outline_rounded,
       children: [
         _InformationRow(
           icon: Icons.badge_outlined,
           label: 'Full name',
-          value: _valueOrNotProvided(profile.displayName),
+          value: _value(profile.displayName),
         ),
         const SizedBox(height: AppSpacing.medium),
         _InformationRow(
           icon: Icons.email_outlined,
           label: 'Email',
-          value: _valueOrNotProvided(profile.email),
+          value: _value(profile.email),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _InformationRow(
+          icon: Icons.numbers_rounded,
+          label: 'Institution ID',
+          value: _value(profile.institutionId),
         ),
       ],
     );
 
     final academic = _SectionCard(
       title: 'Academic information',
-      subtitle: 'Information assigned to your student account.',
+      subtitle: 'Optional information about your academic identity.',
       icon: Icons.school_outlined,
       children: [
         _InformationRow(
-          icon: Icons.numbers_rounded,
-          label: 'Institution ID',
-          value: _valueOrNotProvided(profile.institutionId),
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        _InformationRow(
           icon: Icons.apartment_rounded,
           label: 'Department',
-          value: _valueOrNotProvided(profile.department),
+          value: _value(profile.department),
         ),
         const SizedBox(height: AppSpacing.medium),
         _InformationRow(
           icon: Icons.groups_rounded,
           label: 'Batch',
-          value: _valueOrNotProvided(profile.batch),
+          value: _value(profile.batch),
         ),
         const SizedBox(height: AppSpacing.medium),
         _InformationRow(
           icon: Icons.group_outlined,
           label: 'Section',
-          value: _valueOrNotProvided(profile.section),
+          value: _value(profile.section),
         ),
         const SizedBox(height: AppSpacing.medium),
         _InformationRow(
           icon: Icons.calendar_today_outlined,
           label: 'Semester',
-          value: _valueOrNotProvided(profile.semester),
+          value: _value(profile.semester),
         ),
       ],
     );
@@ -166,18 +191,23 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     );
   }
 
-  String _valueOrNotProvided(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Not provided';
-    }
+  String _value(String? value) {
+    final trimmed = value?.trim() ?? '';
 
-    return value.trim();
+    return trimmed.isEmpty ? 'Not provided' : trimmed;
   }
 
-  Future<void> _retry() async {
-    setState(() {
-      _profileFuture = _authService.loadCurrentProfile();
-    });
+  Future<void> _editProfile(AppUserProfile profile) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return _EditProfileDialog(profile: profile);
+      },
+    );
+
+    if (updated == true && mounted) {
+      setState(_reload);
+    }
   }
 
   Future<void> _sendPasswordReset(String email) async {
@@ -234,11 +264,199 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       },
     );
 
-    if (confirmed != true) {
+    if (confirmed == true) {
+      await _authService.signOut();
+    }
+  }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  final AppUserProfile profile;
+
+  const _EditProfileDialog({required this.profile});
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  static const _authService = AuthService();
+
+  final _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _nameController;
+  late final TextEditingController _departmentController;
+  late final TextEditingController _batchController;
+  late final TextEditingController _sectionController;
+  late final TextEditingController _semesterController;
+
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nameController = TextEditingController(text: widget.profile.displayName);
+
+    _departmentController = TextEditingController(
+      text: widget.profile.department ?? '',
+    );
+
+    _batchController = TextEditingController(text: widget.profile.batch ?? '');
+
+    _sectionController = TextEditingController(
+      text: widget.profile.section ?? '',
+    );
+
+    _semesterController = TextEditingController(
+      text: widget.profile.semester ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _departmentController.dispose();
+    _batchController.dispose();
+    _sectionController.dispose();
+    _semesterController.dispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit profile'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Full name *'),
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+
+                    if (text.length < 2) {
+                      return 'Enter your full name.';
+                    }
+
+                    if (text.length > 80) {
+                      return 'Name is too long.';
+                    }
+
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  initialValue: widget.profile.email,
+                  enabled: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    helperText:
+                        'Email changes require a separate verification flow.',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  initialValue: widget.profile.institutionId,
+                  enabled: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Institution ID',
+                    helperText:
+                        'Institution ID cannot be changed from your profile.',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _departmentController,
+                  decoration: const InputDecoration(labelText: 'Department'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _batchController,
+                  decoration: const InputDecoration(labelText: 'Batch'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _sectionController,
+                  decoration: const InputDecoration(labelText: 'Section'),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                TextFormField(
+                  controller: _semesterController,
+                  decoration: const InputDecoration(labelText: 'Semester'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving
+              ? null
+              : () {
+                  Navigator.pop(context, false);
+                },
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    await _authService.signOut();
+    setState(() {
+      _saving = true;
+    });
+
+    try {
+      await _authService.updateProfile(
+        displayName: _nameController.text,
+        department: _departmentController.text,
+        batch: _batchController.text,
+        section: _sectionController.text,
+        semester: _semesterController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context, true);
+    } on AuthServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
+    }
   }
 }
 
@@ -249,8 +467,6 @@ class _ProfileSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = _initials(profile.displayName);
-
     final labels = <String>[
       if (profile.department?.trim().isNotEmpty == true)
         profile.department!.trim(),
@@ -267,9 +483,9 @@ class _ProfileSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final avatar = Container(
+      child: Row(
+        children: [
+          Container(
             width: 82,
             height: 82,
             decoration: BoxDecoration(
@@ -278,7 +494,7 @@ class _ProfileSummaryCard extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                initials,
+                _initials(profile.displayName),
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 27,
@@ -286,68 +502,57 @@ class _ProfileSummaryCard extends StatelessWidget {
                 ),
               ),
             ),
-          );
-
-          final information = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                profile.displayName.trim().isEmpty
-                    ? 'Student'
-                    : profile.displayName,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.extraSmall),
-              Text(
-                'Institution ID: ${profile.institutionId}',
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.medium),
-              if (labels.isEmpty)
-                const Text(
-                  'Academic details have not been added yet.',
-                  style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
-                )
-              else
-                Wrap(
-                  spacing: AppSpacing.small,
-                  runSpacing: AppSpacing.small,
-                  children: [
-                    for (final label in labels) _ProfileLabel(text: label),
-                  ],
-                ),
-            ],
-          );
-
-          if (constraints.maxWidth >= 560) {
-            return Row(
+          ),
+          const SizedBox(width: AppSpacing.large),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                avatar,
-                const SizedBox(width: AppSpacing.large),
-                Expanded(child: information),
-                if (_isEmailVerified())
-                  const Icon(
-                    Icons.verified_rounded,
-                    color: AppColors.success,
-                    size: 30,
+                Text(
+                  profile.displayName.trim().isEmpty
+                      ? 'Trackademic user'
+                      : profile.displayName,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.extraSmall),
+                Text(
+                  'Institution ID: ${profile.institutionId}',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: AppSpacing.medium),
+                if (labels.isEmpty)
+                  const Text(
+                    'Academic details have not been added yet.',
+                    style: TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 12,
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: AppSpacing.small,
+                    runSpacing: AppSpacing.small,
+                    children: [
+                      for (final label in labels) _ProfileLabel(text: label),
+                    ],
                   ),
               ],
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              avatar,
-              const SizedBox(height: AppSpacing.regular),
-              information,
-            ],
-          );
-        },
+            ),
+          ),
+          if (const AuthService().currentUser?.emailVerified == true)
+            const Tooltip(
+              message: 'Email verified',
+              child: Icon(
+                Icons.verified_rounded,
+                color: AppColors.success,
+                size: 30,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -360,18 +565,14 @@ class _ProfileSummaryCard extends StatelessWidget {
         .toList();
 
     if (parts.isEmpty) {
-      return 'S';
+      return 'U';
     }
 
     if (parts.length == 1) {
-      return parts.first.substring(0, 1).toUpperCase();
+      return parts.first[0].toUpperCase();
     }
 
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-  }
-
-  static bool _isEmailVerified() {
-    return const AuthService().currentUser?.emailVerified ?? false;
   }
 }
 
@@ -382,25 +583,26 @@ class _PrivacyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _SectionCard(
       title: 'Privacy and record access',
-      subtitle: 'Your private academic data is protected.',
+      subtitle: 'Course data is protected by course membership and ownership.',
       icon: Icons.privacy_tip_outlined,
       children: [
         _ProtectedRecordTile(
           icon: Icons.fact_check_outlined,
           title: 'Attendance records',
-          access: 'Available only to you and authorized teachers',
+          access: 'Available to you and the owner of the relevant course',
         ),
         Divider(),
         _ProtectedRecordTile(
           icon: Icons.analytics_outlined,
           title: 'Marks and results',
-          access: 'Available only to you and authorized course teachers',
+          access: 'Available to you and the owner of the relevant course',
         ),
         Divider(),
         _ProtectedRecordTile(
           icon: Icons.location_on_outlined,
           title: 'Location',
-          access: 'Used only when attendance verification requires it',
+          access:
+              'Used only when an attendance session requires GPS verification',
         ),
       ],
     );
@@ -422,10 +624,6 @@ class _AccountSecurityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = const AuthService().currentUser;
 
-    final verified = user?.emailVerified == true ? 'Verified' : 'Not verified';
-
-    final lastSignIn = user?.metadata.lastSignInTime;
-
     return _SectionCard(
       title: 'Account security',
       subtitle: 'Firebase Authentication account status.',
@@ -440,48 +638,31 @@ class _AccountSecurityCard extends StatelessWidget {
         _InformationRow(
           icon: Icons.verified_user_outlined,
           label: 'Email verification',
-          value: verified,
+          value: user?.emailVerified == true ? 'Verified' : 'Not verified',
         ),
         const SizedBox(height: AppSpacing.medium),
         _InformationRow(
           icon: Icons.login_rounded,
           label: 'Last sign-in',
-          value: _formatDateTime(lastSignIn),
+          value: _formatDateTime(user?.metadata.lastSignInTime),
         ),
         const SizedBox(height: AppSpacing.large),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final resetButton = OutlinedButton.icon(
+        Wrap(
+          spacing: AppSpacing.medium,
+          runSpacing: AppSpacing.medium,
+          alignment: WrapAlignment.end,
+          children: [
+            OutlinedButton.icon(
               onPressed: onChangePassword,
               icon: const Icon(Icons.password_rounded),
               label: const Text('Reset password'),
-            );
-
-            final signOutButton = FilledButton.icon(
+            ),
+            FilledButton.icon(
               onPressed: onSignOut,
               icon: const Icon(Icons.logout_rounded),
               label: const Text('Sign out'),
-            );
-
-            if (constraints.maxWidth >= 520) {
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  resetButton,
-                  const SizedBox(width: AppSpacing.medium),
-                  signOutButton,
-                ],
-              );
-            }
-
-            return Column(
-              children: [
-                SizedBox(width: double.infinity, child: resetButton),
-                const SizedBox(height: AppSpacing.medium),
-                SizedBox(width: double.infinity, child: signOutButton),
-              ],
-            );
-          },
+            ),
+          ],
         ),
       ],
     );
@@ -494,12 +675,10 @@ class _AccountSecurityCard extends StatelessWidget {
 
     final local = value.toLocal();
 
-    String twoDigits(int number) {
-      return number.toString().padLeft(2, '0');
-    }
+    String two(int number) => number.toString().padLeft(2, '0');
 
-    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
-        '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
   }
 }
 
@@ -520,7 +699,6 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
-      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
         side: const BorderSide(color: AppColors.border),

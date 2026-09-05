@@ -116,6 +116,55 @@ class AuthService {
     return profile;
   }
 
+  Future<AppUserProfile> updateProfile({
+    required String displayName,
+    String? department,
+    String? batch,
+    String? section,
+    String? semester,
+  }) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw const AuthServiceException('You are not signed in.');
+    }
+
+    final name = displayName.trim();
+
+    if (name.length < 2 || name.length > 80) {
+      throw const AuthServiceException(
+        'Full name must be between 2 and 80 characters.',
+      );
+    }
+
+    String? normalize(String? value) {
+      final trimmed = value?.trim() ?? '';
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    try {
+      await _database.collection('users').doc(user.uid).update({
+        'displayName': name,
+        'department': normalize(department),
+        'batch': normalize(batch),
+        'section': normalize(section),
+        'semester': normalize(semester),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await user.updateDisplayName(name);
+      await user.reload();
+
+      return loadCurrentProfile();
+    } on FirebaseAuthException catch (error) {
+      throw AuthServiceException(_authErrorMessage(error));
+    } on FirebaseException catch (error) {
+      throw AuthServiceException(
+        error.message ?? 'Profile could not be updated.',
+      );
+    }
+  }
+
   Future<void> sendPasswordReset(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim().toLowerCase());

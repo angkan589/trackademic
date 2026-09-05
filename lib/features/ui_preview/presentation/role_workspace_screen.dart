@@ -63,6 +63,12 @@ abstract final class WorkspaceDestinations {
       icon: Icons.calendar_month_outlined,
       selectedIcon: Icons.calendar_month_rounded,
     ),
+    WorkspaceDestination(
+      label: 'Profile',
+      description: 'Manage your Trackademic account and academic information.',
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+    ),
   ];
 
   static const student = <WorkspaceDestination>[
@@ -138,6 +144,8 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
       content = const TeacherMarksScreen();
     } else if (widget.roleName == 'Teacher' && _selectedIndex == 4) {
       content = const TeacherScheduleScreen();
+    } else if (widget.roleName == 'Teacher' && _selectedIndex == 5) {
+      content = const StudentProfileScreen();
     } else if (widget.roleName == 'Student' && _selectedIndex == 0) {
       content = StudentDashboardScreen(
         onOpenAttendance: () {
@@ -174,22 +182,27 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
             onPressed: () {},
             icon: const Icon(Icons.notifications_none_rounded),
           ),
-          if (widget.roleName == 'Student')
-            IconButton(
-              tooltip: 'Profile',
-              onPressed: () {
-                _selectDestination(4);
-              },
-              icon: const CircleAvatar(
-                radius: 17,
-                backgroundColor: AppColors.informationBackground,
-                child: Icon(
-                  Icons.person_outline_rounded,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () {
+              final profileIndex = widget.destinations.indexWhere(
+                (destination) => destination.label == 'Profile',
+              );
+
+              if (profileIndex >= 0) {
+                _selectDestination(profileIndex);
+              }
+            },
+            icon: const CircleAvatar(
+              radius: 17,
+              backgroundColor: AppColors.informationBackground,
+              child: Icon(
+                Icons.person_outline_rounded,
+                size: 20,
+                color: AppColors.primary,
               ),
             ),
+          ),
           if (widget.onSignOut != null)
             Padding(
               padding: const EdgeInsets.only(right: 8),

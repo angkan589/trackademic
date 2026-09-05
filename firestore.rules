@@ -75,6 +75,10 @@ service cloud.firestore {
                 'displayName',
                 'phone',
                 'photoUrl',
+                'department',
+                'batch',
+                'section',
+                'semester',
                 'notificationPreferences',
                 'updatedAt'
               ]) &&
