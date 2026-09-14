@@ -267,7 +267,9 @@ class AcademicService {
 
         final endsAt = session.endsAt;
 
-        if (endsAt != null && endsAt.isBefore(DateTime.now())) {
+        if (endsAt != null &&
+            endsAt.isBefore(DateTime.now()) &&
+            !session.allowLateEntry) {
           continue;
         }
 
@@ -538,6 +540,7 @@ class AttendanceSessionInfo {
   final String status;
   final bool requiresPasscode;
   final bool requiresGps;
+  final bool allowLateEntry;
   final DateTime? startedAt;
   final DateTime? endsAt;
 
@@ -551,6 +554,7 @@ class AttendanceSessionInfo {
     required this.status,
     required this.requiresPasscode,
     required this.requiresGps,
+    required this.allowLateEntry,
     required this.startedAt,
     required this.endsAt,
   });
@@ -566,6 +570,7 @@ class AttendanceSessionInfo {
       status: data['status'] as String? ?? '',
       requiresPasscode: data['requiresPasscode'] as bool? ?? false,
       requiresGps: data['requiresGps'] as bool? ?? false,
+      allowLateEntry: data['allowLateEntry'] as bool? ?? false,
       startedAt: _timestampToDate(data['startedAt']),
       endsAt: _timestampToDate(data['endsAt']),
     );

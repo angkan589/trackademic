@@ -360,6 +360,8 @@ class _ScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
+      elevation: 7,
+      shadowColor: const Color(0x2E23366F),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
         side: const BorderSide(color: AppColors.border),

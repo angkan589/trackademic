@@ -23,7 +23,7 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
-  Future<AppUserProfile> register({
+  Future<void> register({
     required String displayName,
     required String email,
     required String institutionId,
@@ -57,8 +57,6 @@ class AuthService {
       if (!user.emailVerified) {
         await user.sendEmailVerification();
       }
-
-      return loadCurrentProfile();
     } on FirebaseFunctionsException catch (error) {
       throw AuthServiceException(
         error.message ?? 'Registration failed. Please try again.',
@@ -68,17 +66,19 @@ class AuthService {
     }
   }
 
-  Future<AppUserProfile> signIn({
+  Future<void> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email.trim().toLowerCase(),
         password: password,
       );
 
-      return loadCurrentProfile();
+      if (credential.user?.emailVerified == true) {
+        await loadCurrentProfile();
+      }
     } on FirebaseAuthException catch (error) {
       throw AuthServiceException(_authErrorMessage(error));
     } on FirebaseException catch (error) {
@@ -196,7 +196,14 @@ class AuthService {
 
     await user.reload();
 
-    return _auth.currentUser?.emailVerified ?? false;
+    final refreshedUser = _auth.currentUser;
+    final isVerified = refreshedUser?.emailVerified ?? false;
+
+    if (isVerified) {
+      await refreshedUser?.getIdToken(true);
+    }
+
+    return isVerified;
   }
 
   Future<void> signOut() {

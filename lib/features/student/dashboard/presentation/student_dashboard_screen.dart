@@ -200,6 +200,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -371,6 +372,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.regular),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.soft,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -426,6 +428,7 @@ class _AttendanceByCourseCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -543,6 +546,7 @@ class _TodayScheduleCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -675,6 +679,7 @@ class _LoadingCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.extraLarge),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.soft,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -696,6 +701,7 @@ class _ErrorCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),

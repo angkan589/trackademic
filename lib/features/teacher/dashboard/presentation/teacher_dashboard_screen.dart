@@ -201,6 +201,7 @@ class _MetricCard extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.regular),
         decoration: BoxDecoration(
           color: AppColors.surface,
+          boxShadow: AppShadows.soft,
           borderRadius: BorderRadius.circular(AppRadius.large),
           border: Border.all(color: AppColors.border),
         ),
@@ -241,6 +242,8 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
+      elevation: 7,
+      shadowColor: const Color(0x2E23366F),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
         side: const BorderSide(color: AppColors.border),

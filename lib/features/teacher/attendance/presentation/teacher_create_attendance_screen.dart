@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/features/teacher/attendance/presentation/teacher_attendance_summary_screen.dart';
 
 class TeacherCreateAttendanceScreen extends StatefulWidget {
   final bool showBackButton;
@@ -138,9 +139,11 @@ class _TeacherCreateAttendanceScreenState
           for (final session in data.sessions) ...[
             _SessionCard(
               session: session,
-              onView: () => _showSession(session),
+              onView: () => session.status == 'active'
+                  ? _showSession(session)
+                  : _openSummary(session, data.courses),
               onClose: session.status == 'active'
-                  ? () => _closeSession(session)
+                  ? () => _closeSession(session, data.courses)
                   : null,
             ),
             const SizedBox(height: AppSpacing.regular),
@@ -156,7 +159,10 @@ class _TeacherCreateAttendanceScreenState
     );
   }
 
-  Future<void> _closeSession(TeacherAttendanceSession session) async {
+  Future<void> _closeSession(
+    TeacherAttendanceSession session,
+    List<TeacherCourse> courses,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -189,6 +195,70 @@ class _TeacherCreateAttendanceScreenState
       }
 
       setState(_reload);
+      await _openSummary(session, courses);
+    } on TeacherAcademicServiceException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _openSummary(
+    TeacherAttendanceSession session,
+    List<TeacherCourse> courses,
+  ) async {
+    try {
+      final students = await _service.loadCourseStudents(session.courseId);
+      final records = await _service.loadAttendanceRecords(session);
+
+      if (!mounted) {
+        return;
+      }
+
+      TeacherCourse? course;
+
+      for (final candidate in courses) {
+        if (candidate.id == session.courseId) {
+          course = candidate;
+          break;
+        }
+      }
+
+      final present = records
+          .where((record) => record.status == 'present')
+          .length;
+      final late = records.where((record) => record.status == 'late').length;
+      final absent = records
+          .where((record) => record.status == 'absent')
+          .length;
+      final batch = course?.batch?.trim();
+      final section = course?.section?.trim();
+      final batchParts = <String>[
+        if (batch != null && batch.isNotEmpty) batch,
+        if (section != null && section.isNotEmpty) 'Section $section',
+      ];
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => TeacherAttendanceSummaryScreen(
+            course: '${session.courseCode} · ${session.courseName}',
+            batch: batchParts.isEmpty
+                ? 'Not specified'
+                : batchParts.join(' · '),
+            classType: session.classType,
+            durationMinutes: session.durationMinutes,
+            sessionDate: session.startedAt,
+            totalStudents: max(students.length, records.length),
+            presentCount: present,
+            lateCount: late,
+            absentCount: absent,
+          ),
+        ),
+      );
     } on TeacherAcademicServiceException catch (error) {
       if (!mounted) {
         return;
@@ -805,6 +875,8 @@ class _SessionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
+      elevation: 7,
+      shadowColor: const Color(0x2E23366F),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
         side: const BorderSide(color: AppColors.border),
@@ -836,7 +908,12 @@ class _SessionCard extends StatelessWidget {
                 ],
               ),
             ),
-            OutlinedButton(onPressed: onView, child: const Text('Monitor')),
+            OutlinedButton(
+              onPressed: onView,
+              child: Text(
+                session.status == 'active' ? 'Monitor' : 'View summary',
+              ),
+            ),
             if (onClose != null) ...[
               const SizedBox(width: AppSpacing.small),
               FilledButton(

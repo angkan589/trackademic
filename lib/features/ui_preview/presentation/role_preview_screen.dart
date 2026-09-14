@@ -81,7 +81,10 @@ class RolePreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Trackademic UI Preview')),
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Trackademic UI Preview'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.large),
         child: Center(

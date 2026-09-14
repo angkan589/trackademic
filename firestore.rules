@@ -15,6 +15,7 @@ service cloud.firestore {
 
     function isActiveUser() {
       return profileExists() &&
+          request.auth.token.email_verified == true &&
           get(
             /databases/$(database)/documents/users/$(request.auth.uid)
           ).data.isActive == true;
@@ -330,7 +331,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-// Institution IDs are reserved by Cloud Functions
+    // Institution IDs are reserved by Cloud Functions
     // so two accounts cannot use the same ID.
     match /institutionIds/{institutionId} {
       allow read, write: if false;

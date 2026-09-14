@@ -5,11 +5,45 @@
         "lib/firebase_options.dart": {
           "projectId": "trackademic-0",
           "configurations": {
-            "web": "1:664949220313:web:78405ad6e41393b5eeefc8"
+            "web": "1:664949220313:web:78405ad6e41393b5eeefc8",
+            "android": "1:664949220313:android:80926990418f7d2aeeefc8",
+            "ios": "1:664949220313:ios:667598c8f8a28c5aeeefc8"
+          }
+        },
+        "android": {
+          "default": {
+            "projectId": "trackademic-0",
+            "appId": "1:664949220313:android:80926990418f7d2aeeefc8",
+            "fileOutput": "android/app/google-services.json"
+          }
+        },
+        "ios": {
+          "default": {
+            "projectId": "trackademic-0",
+            "appId": "1:664949220313:ios:667598c8f8a28c5aeeefc8",
+            "uploadDebugSymbols": false,
+            "fileOutput": "ios/Runner/GoogleService-Info.plist"
           }
         }
       }
     }
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   },
   "firestore": {
     "database": "(default)",

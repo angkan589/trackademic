@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/core/services/notification_service.dart';
+import 'package:trackademic/features/notifications/presentation/notification_center_screen.dart';
 import 'package:trackademic/features/student/attendance/presentation/student_attendance_screen.dart';
 import 'package:trackademic/features/student/dashboard/presentation/student_dashboard_screen.dart';
 import 'package:trackademic/features/student/marks/presentation/student_marks_screen.dart';
@@ -124,8 +126,18 @@ class RoleWorkspaceScreen extends StatefulWidget {
 }
 
 class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
+  static const _notificationService = NotificationService();
+
   int _selectedIndex = 0;
   bool _isSigningOut = false;
+
+  late final Stream<List<TrackademicNotification>> _notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifications = _notificationService.watchCurrent();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,12 +187,31 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const BackButton(),
         title: Text('${widget.roleName} Workspace'),
         actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none_rounded),
+          StreamBuilder<List<TrackademicNotification>>(
+            stream: _notifications,
+            builder: (context, snapshot) {
+              final unread = snapshot.data
+                      ?.where((notification) => !notification.isRead)
+                      .length ??
+                  0;
+
+              return Badge(
+                isLabelVisible: unread > 0,
+                label: Text(unread > 99 ? '99+' : '$unread'),
+                child: IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: _openNotifications,
+                  icon: Icon(
+                    unread > 0
+                        ? Icons.notifications_rounded
+                        : Icons.notifications_none_rounded,
+                  ),
+                ),
+              );
+            },
           ),
           IconButton(
             tooltip: 'Profile',
@@ -245,6 +276,8 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
           : NavigationBar(
               selectedIndex: _selectedIndex,
               onDestinationSelected: _selectDestination,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.onlyShowSelected,
               destinations: widget.destinations.map((item) {
                 return NavigationDestination(
                   icon: Icon(item.icon),
@@ -264,6 +297,36 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Future<void> _openNotifications() async {
+    final notification = await Navigator.of(
+      context,
+    ).push<TrackademicNotification>(
+      MaterialPageRoute<TrackademicNotification>(
+        builder: (context) => const NotificationCenterScreen(),
+      ),
+    );
+
+    if (!mounted || notification == null) {
+      return;
+    }
+
+    final label = switch (notification.type) {
+      'attendance' => 'Attendance',
+      'marks' => 'Marks',
+      'schedule' => 'Schedule',
+      'join_request' => 'Courses',
+      'course' => widget.roleName == 'Teacher' ? 'Courses' : 'Dashboard',
+      _ => 'Dashboard',
+    };
+    final index = widget.destinations.indexWhere(
+      (destination) => destination.label == label,
+    );
+
+    if (index >= 0) {
+      _selectDestination(index);
+    }
   }
 
   Future<void> _signOut() async {
@@ -356,7 +419,7 @@ class _ModulePlaceholder extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.small),
                     const Text(
-                      'This module is ready for its complete UI design.',
+                      'This module is not available for the selected workspace.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppColors.textSecondary,
