@@ -56,9 +56,19 @@ class StudentAcademicService {
           document.data(),
         );
 
-        if (session.status == 'active') {
-          sessions.add(session);
+        if (session.status != 'active') {
+          continue;
         }
+
+        final endsAt = session.endsAt;
+
+        if (endsAt != null &&
+            endsAt.isBefore(DateTime.now()) &&
+            !session.allowLateEntry) {
+          continue;
+        }
+
+        sessions.add(session);
       }
     }
 

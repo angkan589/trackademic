@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Storage is reserved for a future, explicitly reviewed upload flow.
+    // Keep it closed instead of relying on Firebase's temporary starter rules.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

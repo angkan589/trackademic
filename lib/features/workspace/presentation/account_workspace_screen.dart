@@ -5,6 +5,7 @@ import 'package:trackademic/core/services/student_academic_service.dart';
 import 'package:trackademic/core/services/teacher_academic_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/core/widgets/app_depth_background.dart';
 import 'package:trackademic/features/ui_preview/presentation/role_workspace_screen.dart';
 
 class AccountWorkspaceScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
   }
 
   Future<_HomeData> _load() async {
+    final profile = await _auth.loadCurrentProfile();
     final teaching = await _teacher.loadMyCourses();
 
     final teachingWithCodes = <TeacherCourse>[];
@@ -54,7 +56,11 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
 
     final studies = await _academic.loadCurrentCourses();
 
-    return _HomeData(teaching: teachingWithCodes, studies: studies);
+    return _HomeData(
+      profile: profile,
+      teaching: teachingWithCodes,
+      studies: studies,
+    );
   }
 
   @override
@@ -85,7 +91,10 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
           }
 
           if (snapshot.hasError || !snapshot.hasData) {
-            return Center(child: Text(snapshot.error.toString()));
+            return _WorkspaceLoadError(
+              message: snapshot.error?.toString() ?? 'Workspace unavailable.',
+              onRetry: () => setState(_reload),
+            );
           }
 
           final data = snapshot.data!;
@@ -98,17 +107,7 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Welcome, ${widget.profile.displayName}',
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      widget.profile.institutionId,
-                      style: const TextStyle(color: AppColors.textSecondary),
-                    ),
+                    _AccountHero(profile: data.profile),
                     const SizedBox(height: AppSpacing.extraLarge),
                     _section(
                       title: 'Teaching',
@@ -184,6 +183,8 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
   }) {
     return Material(
       color: AppColors.surface,
+      elevation: 8,
+      shadowColor: const Color(0x2E23366F),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.large),
         side: const BorderSide(color: AppColors.border),
@@ -282,8 +283,8 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
     );
   }
 
-  void _openTeacher() {
-    Navigator.of(context).push(
+  Future<void> _openTeacher() async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => RoleWorkspaceScreen(
           roleName: 'Teacher',
@@ -292,10 +293,14 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
         ),
       ),
     );
+
+    if (mounted) {
+      setState(_reload);
+    }
   }
 
-  void _openStudent() {
-    Navigator.of(context).push(
+  Future<void> _openStudent() async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => RoleWorkspaceScreen(
           roleName: 'Student',
@@ -304,6 +309,10 @@ class _AccountWorkspaceScreenState extends State<AccountWorkspaceScreen> {
         ),
       ),
     );
+
+    if (mounted) {
+      setState(_reload);
+    }
   }
 }
 
@@ -422,8 +431,122 @@ class _JoinRequestsDialogState extends State<_JoinRequestsDialog> {
 }
 
 class _HomeData {
+  final AppUserProfile profile;
   final List<TeacherCourse> teaching;
   final List<AcademicCourse> studies;
 
-  const _HomeData({required this.teaching, required this.studies});
+  const _HomeData({
+    required this.profile,
+    required this.teaching,
+    required this.studies,
+  });
+}
+
+class _AccountHero extends StatelessWidget {
+  final AppUserProfile profile;
+
+  const _AccountHero({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.large),
+      decoration: BoxDecoration(
+        gradient: AppGradients.primary,
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
+        boxShadow: AppShadows.floating,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(AppRadius.large),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.32)),
+            ),
+            child: const Icon(
+              Icons.school_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.large),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome, ${profile.displayName}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.small),
+                Text(
+                  'Institution ID · ${profile.institutionId}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.86),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceLoadError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _WorkspaceLoadError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: DepthSurface(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DepthIconBadge(
+                icon: Icons.cloud_off_rounded,
+                color: AppColors.danger,
+                size: 64,
+              ),
+              const SizedBox(height: AppSpacing.large),
+              const Text(
+                'Could not load your workspace',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: AppSpacing.small),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.large),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

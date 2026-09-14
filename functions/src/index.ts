@@ -120,6 +120,13 @@ type SetAttendanceStatusData = {
   status?: unknown;
 };
 
+type NotificationData = {
+  type: "attendance" | "course" | "join_request" | "marks" | "schedule";
+  title: string;
+  message: string;
+  courseId?: string;
+};
+
 
 function requiredString(
   value: unknown,
@@ -303,6 +310,16 @@ async function requireActiveUser(
 ): Promise<FirebaseFirestore.DocumentData> {
   const database = getFirestore();
 
+  const authenticationUser =
+    await getAuth().getUser(uid);
+
+  if (!authenticationUser.emailVerified) {
+    throw new HttpsError(
+      "permission-denied",
+      "Verify your email before using Trackademic.",
+    );
+  }
+
   const profile = await database
     .collection("users")
     .doc(uid)
@@ -322,6 +339,89 @@ async function requireActiveUser(
   }
 
   return data;
+}
+
+function notificationPayload(
+  notification: NotificationData,
+): Record<string, unknown> {
+  return {
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    courseId: notification.courseId ?? null,
+    isRead: false,
+    readAt: null,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+}
+
+async function notifyUser(
+  userId: string,
+  notification: NotificationData,
+): Promise<void> {
+  if (!userId) {
+    return;
+  }
+
+  try {
+    const database = getFirestore();
+    const reference = database
+      .collection("notifications")
+      .doc(userId)
+      .collection("items")
+      .doc();
+
+    await reference.create(
+      notificationPayload(notification),
+    );
+  } catch (error) {
+    logger.error(
+      `Could not notify user ${userId}.`,
+      error,
+    );
+  }
+}
+
+async function notifyCourseStudents(
+  courseId: string,
+  notification: NotificationData,
+): Promise<void> {
+  try {
+    const database = getFirestore();
+    const students = await database
+      .collection("courses")
+      .doc(courseId)
+      .collection("students")
+      .where("isActive", "==", true)
+      .get();
+
+    const chunkSize = 400;
+
+    for (let index = 0; index < students.docs.length; index += chunkSize) {
+      const batch = database.batch();
+      const chunk = students.docs.slice(index, index + chunkSize);
+
+      for (const student of chunk) {
+        const reference = database
+          .collection("notifications")
+          .doc(student.id)
+          .collection("items")
+          .doc();
+
+        batch.create(
+          reference,
+          notificationPayload(notification),
+        );
+      }
+
+      await batch.commit();
+    }
+  } catch (error) {
+    logger.error(
+      `Could not notify students for course ${courseId}.`,
+      error,
+    );
+  }
 }
 
 // Compatibility wrappers.
@@ -796,6 +896,20 @@ export const requestJoinCourse =
         updatedAt: FieldValue.serverTimestamp(),
       });
 
+      await notifyUser(
+        typeof course.teacherId === "string" ?
+          course.teacherId :
+          "",
+        {
+          type: "join_request",
+          title: "New course join request",
+          message:
+            `${student.displayName ?? "A student"} requested to join ` +
+            `${course.code ?? "your course"}.`,
+          courseId,
+        },
+      );
+
       return {
         requestId: requestReference.id,
         courseId,
@@ -955,6 +1069,20 @@ export const respondCourseJoinRequest =
       );
 
       await batch.commit();
+
+      await notifyUser(
+        studentId,
+        {
+          type: "course",
+          title: response === "approved" ?
+            "Course request approved" :
+            "Course request declined",
+          message: response === "approved" ?
+            `You can now access ${data.courseCode ?? "the course"}.` :
+            `Your request for ${data.courseCode ?? "the course"} was declined.`,
+          courseId,
+        },
+      );
 
       return {
         success: true,
@@ -1122,7 +1250,7 @@ export const enrollStudent =
           request.data.institutionId,
         );
 
-      await requireOwnedCourse(
+      const course = await requireOwnedCourse(
         teacherId,
         courseId,
       );
@@ -1151,6 +1279,13 @@ export const enrollStudent =
 
       const student =
         studentDocument.data();
+
+      if (studentDocument.id === teacherId) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The course owner cannot be enrolled as a student.",
+        );
+      }
 
       if (student.isActive !== true) {
         throw new HttpsError(
@@ -1212,6 +1347,16 @@ export const enrollStudent =
 
       await batchWrite.commit();
 
+      await notifyUser(
+        studentDocument.id,
+        {
+          type: "course",
+          title: "Added to a course",
+          message: `You were added to ${course.code ?? "a course"}.`,
+          courseId,
+        },
+      );
+
       return {
         studentId: studentDocument.id,
       };
@@ -1247,7 +1392,7 @@ export const unenrollStudent =
         128,
       );
 
-      await requireOwnedCourse(
+      const course = await requireOwnedCourse(
         teacherId,
         courseId,
       );
@@ -1308,6 +1453,16 @@ export const unenrollStudent =
       );
 
       await batchWrite.commit();
+
+      await notifyUser(
+        studentId,
+        {
+          type: "course",
+          title: "Course enrollment ended",
+          message: `You were removed from ${course.code ?? "a course"}.`,
+          courseId,
+        },
+      );
 
       return {
         success: true,
@@ -1427,6 +1582,18 @@ export const createSchedule =
         createdAt: timestamp,
         updatedAt: timestamp,
       });
+
+      await notifyCourseStudents(
+        courseId,
+        {
+          type: "schedule",
+          title: "New class scheduled",
+          message:
+            `${course.code ?? "Course"}: ${day}, ` +
+            `${startTime}-${endTime} in ${room}.`,
+          courseId,
+        },
+      );
 
       return {
         scheduleId: reference.id,
@@ -1558,6 +1725,18 @@ export const updateSchedule =
           FieldValue.serverTimestamp(),
       });
 
+      await notifyCourseStudents(
+        courseId,
+        {
+          type: "schedule",
+          title: "Class schedule updated",
+          message:
+            `${course.code ?? "Course"}: ${day}, ` +
+            `${startTime}-${endTime} in ${room}.`,
+          courseId,
+        },
+      );
+
       return {
         success: true,
       };
@@ -1608,6 +1787,17 @@ export const deleteSchedule =
       );
 
       await reference.delete();
+
+      await notifyCourseStudents(
+        String(data.courseId),
+        {
+          type: "schedule",
+          title: "Class schedule removed",
+          message:
+            `${data.courseCode ?? "A course"} schedule entry was removed.`,
+          courseId: String(data.courseId),
+        },
+      );
 
       return {
         success: true,
@@ -1817,6 +2007,18 @@ export const createAttendanceSession =
       );
 
       await batchWrite.commit();
+
+      await notifyCourseStudents(
+        courseId,
+        {
+          type: "attendance",
+          title: "Attendance is open",
+          message:
+            `${course.code ?? "Your course"} attendance is open for ` +
+            `${durationMinutes} minutes.`,
+          courseId,
+        },
+      );
 
       return {
         sessionId: reference.id,
@@ -2723,6 +2925,13 @@ export const publishAssessment =
         )
         .get();
 
+      if (marks.size > 200) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "Too many marks are attached to this assessment to publish at once.",
+        );
+      }
+
       const batchWrite =
         database.batch();
 
@@ -2738,6 +2947,8 @@ export const publishAssessment =
       );
 
       for (const mark of marks.docs) {
+        const markData = mark.data();
+
         batchWrite.update(
           mark.ref,
           {
@@ -2746,6 +2957,31 @@ export const publishAssessment =
               FieldValue.serverTimestamp(),
           },
         );
+
+        const studentId =
+          typeof markData.studentId === "string" ?
+            markData.studentId :
+            "";
+
+        if (studentId) {
+          const notificationReference = database
+            .collection("notifications")
+            .doc(studentId)
+            .collection("items")
+            .doc();
+
+          batchWrite.create(
+            notificationReference,
+            notificationPayload({
+              type: "marks",
+              title: "New marks published",
+              message:
+                `${assessment.courseCode ?? "Your course"}: ` +
+                `${assessment.name ?? "assessment"} marks are available.`,
+              courseId: String(assessment.courseId),
+            }),
+          );
+        }
       }
 
       await batchWrite.commit();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/theme/app_colors.dart';
 import '../../authentication/presentation/sign_in_screen.dart';
 import '../../authentication/presentation/create_account_screen.dart';
 
@@ -12,10 +13,6 @@ class WelcomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F9FF),
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
         titleSpacing: isCompact ? 16 : 28,
 
         // Application logo and name
@@ -26,10 +23,9 @@ class WelcomeScreen extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3454D1), Color(0xFF6D5CE7)],
-                ),
+                gradient: AppGradients.primary,
                 borderRadius: BorderRadius.circular(13),
+                boxShadow: AppShadows.soft,
               ),
               child: const Icon(Icons.school_rounded, color: Colors.white),
             ),
@@ -84,13 +80,7 @@ class WelcomeScreen extends StatelessWidget {
       ),
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFF7F9FF), Color(0xFFEEF2FF), Color(0xFFF9FBFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppGradients.page),
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
@@ -240,6 +230,7 @@ class _BenefitChip extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: const Color(0xFFE1E6F2)),
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -276,6 +267,7 @@ class _AttendancePreview extends StatelessWidget {
             blurRadius: 40,
             offset: const Offset(0, 20),
           ),
+          ...AppShadows.floating,
         ],
       ),
       padding: const EdgeInsets.all(2),
@@ -603,6 +595,7 @@ class _FeatureCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE3E8F3)),
+        boxShadow: AppShadows.raised,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,6 +606,7 @@ class _FeatureCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFFE7ECFF),
               borderRadius: BorderRadius.circular(15),
+              boxShadow: AppShadows.soft,
             ),
             child: Icon(icon, color: const Color(0xFF3454D1)),
           ),

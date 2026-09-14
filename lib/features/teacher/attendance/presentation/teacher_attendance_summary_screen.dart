@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trackademic/core/services/report_export_service.dart';
 import 'package:trackademic/core/theme/app_colors.dart';
 import 'package:trackademic/core/theme/app_dimensions.dart';
 
@@ -7,6 +8,7 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
   final String batch;
   final String classType;
   final int durationMinutes;
+  final DateTime? sessionDate;
   final int totalStudents;
   final int presentCount;
   final int lateCount;
@@ -17,6 +19,7 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
     required this.batch,
     required this.classType,
     required this.durationMinutes,
+    required this.sessionDate,
     required this.totalStudents,
     required this.presentCount,
     required this.lateCount,
@@ -29,95 +32,93 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
       return 0;
     }
 
-    return (presentCount + lateCount) / totalStudents;
+    return ((presentCount + lateCount) / totalStudents)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   String get _formattedDate {
-    final now = DateTime.now();
+    final value = sessionDate ?? DateTime.now();
 
-    return '${now.day.toString().padLeft(2, '0')}/'
-        '${now.month.toString().padLeft(2, '0')}/'
-        '${now.year}';
+    return '${value.day.toString().padLeft(2, '0')}/'
+        '${value.month.toString().padLeft(2, '0')}/'
+        '${value.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.large),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1050),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: AppSpacing.large),
-              _buildSuccessBanner(),
-              const SizedBox(height: AppSpacing.large),
-              _buildSummaryCards(),
-              const SizedBox(height: AppSpacing.large),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth >= 800) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 6, child: _buildAttendanceOverview()),
-                        const SizedBox(width: AppSpacing.regular),
-                        Expanded(flex: 4, child: _buildSessionDetails()),
-                      ],
-                    );
-                  }
+    return Scaffold(
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Attendance summary'),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.large),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1050),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: AppSpacing.large),
+                  _buildSuccessBanner(),
+                  const SizedBox(height: AppSpacing.large),
+                  _buildSummaryCards(),
+                  const SizedBox(height: AppSpacing.large),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth >= 800) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: _buildAttendanceOverview(),
+                            ),
+                            const SizedBox(width: AppSpacing.regular),
+                            Expanded(flex: 4, child: _buildSessionDetails()),
+                          ],
+                        );
+                      }
 
-                  return Column(
-                    children: [
-                      _buildAttendanceOverview(),
-                      const SizedBox(height: AppSpacing.regular),
-                      _buildSessionDetails(),
-                    ],
-                  );
-                },
+                      return Column(
+                        children: [
+                          _buildAttendanceOverview(),
+                          const SizedBox(height: AppSpacing.regular),
+                          _buildSessionDetails(),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.large),
+                  _buildActions(context),
+                ],
               ),
-              const SizedBox(height: AppSpacing.large),
-              _buildActions(context),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Row(
+  Widget _buildHeader() {
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Attendance Summary',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              SizedBox(height: AppSpacing.small),
-              Text(
-                'Review the final attendance result for this session.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
-              ),
-            ],
+        Text(
+          'Attendance Summary',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(width: AppSpacing.medium),
-        IconButton(
-          tooltip: 'Close summary',
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          icon: const Icon(Icons.close_rounded),
+        SizedBox(height: AppSpacing.small),
+        Text(
+          'Review the final attendance result for this session.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
         ),
       ],
     );
@@ -231,6 +232,7 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -305,6 +307,7 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.large),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.raised,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),
@@ -355,15 +358,7 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         OutlinedButton.icon(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Attendance report download will be added later.',
-                ),
-              ),
-            );
-          },
+          onPressed: () => _downloadReport(context),
           icon: const Icon(Icons.download_rounded),
           label: const Text('Download report'),
         ),
@@ -377,6 +372,33 @@ class TeacherAttendanceSummaryScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _downloadReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final dateForFile = _formattedDate.replaceAll('/', '-');
+    final csv = ReportExportService.attendanceSummaryCsv(
+      course: course,
+      batch: batch,
+      classType: classType,
+      date: _formattedDate,
+      durationMinutes: durationMinutes,
+      totalStudents: totalStudents,
+      presentCount: presentCount,
+      lateCount: lateCount,
+      absentCount: absentCount,
+    );
+
+    try {
+      final message = await ReportExportService.saveCsv(
+        fileName: 'attendance_${course}_$dateForFile.csv',
+        content: csv,
+      );
+
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } on ReportExportException catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 }
 
@@ -401,6 +423,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.regular),
       decoration: BoxDecoration(
         color: AppColors.surface,
+        boxShadow: AppShadows.soft,
         borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(color: AppColors.border),
       ),

@@ -21,15 +21,9 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -59,5 +53,22 @@ class DefaultFirebaseOptions {
     projectId: 'trackademic-0',
     authDomain: 'trackademic-0.firebaseapp.com',
     storageBucket: 'trackademic-0.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyD2cl8AmJLduQ4IaCbUf6gM59BeBWBfSuo',
+    appId: '1:664949220313:android:80926990418f7d2aeeefc8',
+    messagingSenderId: '664949220313',
+    projectId: 'trackademic-0',
+    storageBucket: 'trackademic-0.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBDJ1qrUvygd-8CQD9WqXDrv84i8AMoUr8',
+    appId: '1:664949220313:ios:667598c8f8a28c5aeeefc8',
+    messagingSenderId: '664949220313',
+    projectId: 'trackademic-0',
+    storageBucket: 'trackademic-0.firebasestorage.app',
+    iosBundleId: 'com.trackademic.trackademic',
   );
 }

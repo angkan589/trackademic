@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:trackademic/core/services/auth_service.dart';
+import 'package:trackademic/core/theme/app_colors.dart';
+import 'package:trackademic/core/theme/app_dimensions.dart';
+import 'package:trackademic/core/widgets/app_depth_background.dart';
 import 'package:trackademic/features/welcome/presentation/welcome_screen.dart';
 import 'package:trackademic/features/workspace/presentation/account_workspace_screen.dart';
 
@@ -157,14 +160,12 @@ class _EmailVerificationScreenState extends State<_EmailVerificationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back',
+        leading: BackButton(
           onPressed: _isWorking
               ? null
               : () {
                   _authService.signOut();
                 },
-          icon: const Icon(Icons.arrow_back_rounded),
         ),
         title: const Text('Verify email'),
       ),
@@ -174,46 +175,57 @@ class _EmailVerificationScreenState extends State<_EmailVerificationScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.mark_email_unread_outlined,
-                    size: 72,
-                    color: Color(0xFF3454D1),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Check your inbox',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'We sent a verification link to $email. '
-                    'Open the link, then return here.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _isWorking ? null : _checkVerification,
-                      icon: _isWorking
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded),
-                      label: const Text('I verified my email'),
+              child: DepthSurface(
+                padding: const EdgeInsets.all(AppSpacing.extraLarge),
+                child: Column(
+                  children: [
+                    const DepthIconBadge(
+                      icon: Icons.mark_email_unread_outlined,
+                      size: 72,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _isWorking ? null : _resendEmail,
-                    child: const Text('Resend verification email'),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.large),
+                    const Text(
+                      'Check your inbox',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.medium),
+                    Text(
+                      'We sent a verification link to $email. '
+                      'Open the link, then return here.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.extraLarge),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _isWorking ? null : _checkVerification,
+                        icon: _isWorking
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded),
+                        label: const Text('I verified my email'),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.medium),
+                    TextButton(
+                      onPressed: _isWorking ? null : _resendEmail,
+                      child: const Text('Resend verification email'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
