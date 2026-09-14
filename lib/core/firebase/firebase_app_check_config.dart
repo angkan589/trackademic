@@ -27,8 +27,8 @@ abstract final class FirebaseAppCheckConfig {
     if (defaultTargetPlatform == TargetPlatform.android) {
       await FirebaseAppCheck.instance.activate(
         providerAndroid: kDebugMode
-            ? AndroidProvider.debug
-            : AndroidProvider.playIntegrity,
+            ? AndroidAppCheckProvider.debug
+            : AndroidAppCheckProvider.playIntegrity,
       );
       return;
     }
@@ -36,8 +36,8 @@ abstract final class FirebaseAppCheckConfig {
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       await FirebaseAppCheck.instance.activate(
         providerApple: kDebugMode
-            ? AppleProvider.debug
-            : AppleProvider.deviceCheck,
+            ? AppleAppCheckProvider.debug
+            : AppleAppCheckProvider.deviceCheck,
       );
     }
   }
