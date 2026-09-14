@@ -19,14 +19,14 @@ abstract final class FirebaseAppCheckConfig {
       }
 
       await FirebaseAppCheck.instance.activate(
-        webProvider: ReCaptchaV3Provider(_webSiteKey),
+        providerWeb: ReCaptchaV3Provider(_webSiteKey),
       );
       return;
     }
 
     if (defaultTargetPlatform == TargetPlatform.android) {
       await FirebaseAppCheck.instance.activate(
-        androidProvider: kDebugMode
+        providerAndroid: kDebugMode
             ? AndroidProvider.debug
             : AndroidProvider.playIntegrity,
       );
@@ -35,7 +35,7 @@ abstract final class FirebaseAppCheckConfig {
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       await FirebaseAppCheck.instance.activate(
-        appleProvider: kDebugMode
+        providerApple: kDebugMode
             ? AppleProvider.debug
             : AppleProvider.deviceCheck,
       );

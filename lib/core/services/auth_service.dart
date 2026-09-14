@@ -152,7 +152,7 @@ class AuthService {
       await user.updateDisplayName(name);
       await user.reload();
 
-      return loadCurrentProfile();
+      return await loadCurrentProfile();
     } on FirebaseAuthException catch (error) {
       throw AuthServiceException(_authErrorMessage(error));
     } on FirebaseException catch (error) {
