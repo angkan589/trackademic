@@ -1,5 +1,6 @@
 import 'report_export_platform.dart'
-    if (dart.library.html) 'report_export_web.dart' as platform;
+    if (dart.library.html) 'report_export_web.dart'
+    as platform;
 
 abstract final class ReportExportService {
   static Future<String> saveCsv({
@@ -50,9 +51,7 @@ abstract final class ReportExportService {
         .replaceAll(RegExp(r'_+'), '_');
 
     final baseName = sanitized.isEmpty ? 'trackademic_report' : sanitized;
-    return baseName.toLowerCase().endsWith('.csv')
-        ? baseName
-        : '$baseName.csv';
+    return baseName.toLowerCase().endsWith('.csv') ? baseName : '$baseName.csv';
   }
 
   static String _csvCell(Object value) {

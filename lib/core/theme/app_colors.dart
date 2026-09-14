@@ -64,41 +64,17 @@ abstract final class AppGradients {
 
 abstract final class AppShadows {
   static const List<BoxShadow> raised = [
-    BoxShadow(
-      color: Color(0x1F23366F),
-      blurRadius: 24,
-      offset: Offset(0, 12),
-    ),
-    BoxShadow(
-      color: Color(0xBFFFFFFF),
-      blurRadius: 8,
-      offset: Offset(-5, -5),
-    ),
+    BoxShadow(color: Color(0x1F23366F), blurRadius: 24, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0xBFFFFFFF), blurRadius: 8, offset: Offset(-5, -5)),
   ];
 
   static const List<BoxShadow> soft = [
-    BoxShadow(
-      color: Color(0x1423366F),
-      blurRadius: 14,
-      offset: Offset(0, 7),
-    ),
-    BoxShadow(
-      color: Color(0x99FFFFFF),
-      blurRadius: 6,
-      offset: Offset(-3, -3),
-    ),
+    BoxShadow(color: Color(0x1423366F), blurRadius: 14, offset: Offset(0, 7)),
+    BoxShadow(color: Color(0x99FFFFFF), blurRadius: 6, offset: Offset(-3, -3)),
   ];
 
   static const List<BoxShadow> floating = [
-    BoxShadow(
-      color: Color(0x333454D1),
-      blurRadius: 34,
-      offset: Offset(0, 18),
-    ),
-    BoxShadow(
-      color: Color(0x1A6D5CE7),
-      blurRadius: 12,
-      offset: Offset(0, 5),
-    ),
+    BoxShadow(color: Color(0x333454D1), blurRadius: 34, offset: Offset(0, 18)),
+    BoxShadow(color: Color(0x1A6D5CE7), blurRadius: 12, offset: Offset(0, 5)),
   ];
 }

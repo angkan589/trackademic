@@ -300,7 +300,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 : 'Hide password',
                             onPressed: () {
                               setState(() {
-                                _hideConfirmedPassword = !_hideConfirmedPassword;
+                                _hideConfirmedPassword =
+                                    !_hideConfirmedPassword;
                               });
                             },
                             icon: Icon(

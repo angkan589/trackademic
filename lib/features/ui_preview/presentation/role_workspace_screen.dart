@@ -193,7 +193,8 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
           StreamBuilder<List<TrackademicNotification>>(
             stream: _notifications,
             builder: (context, snapshot) {
-              final unread = snapshot.data
+              final unread =
+                  snapshot.data
                       ?.where((notification) => !notification.isRead)
                       .length ??
                   0;
@@ -300,13 +301,12 @@ class _RoleWorkspaceScreenState extends State<RoleWorkspaceScreen> {
   }
 
   Future<void> _openNotifications() async {
-    final notification = await Navigator.of(
-      context,
-    ).push<TrackademicNotification>(
-      MaterialPageRoute<TrackademicNotification>(
-        builder: (context) => const NotificationCenterScreen(),
-      ),
-    );
+    final notification = await Navigator.of(context)
+        .push<TrackademicNotification>(
+          MaterialPageRoute<TrackademicNotification>(
+            builder: (context) => const NotificationCenterScreen(),
+          ),
+        );
 
     if (!mounted || notification == null) {
       return;

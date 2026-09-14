@@ -65,7 +65,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             return const _NotificationState(
               icon: Icons.notifications_active_outlined,
               title: 'You are all caught up',
-              message: 'Course, attendance, schedule, and marks updates appear here.',
+              message:
+                  'Course, attendance, schedule, and marks updates appear here.',
             );
           }
 
@@ -155,17 +156,15 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     );
   }
 
-  Future<void> _openNotification(
-    TrackademicNotification notification,
-  ) async {
+  Future<void> _openNotification(TrackademicNotification notification) async {
     if (!notification.isRead) {
       try {
         await _service.markRead(notification.id);
       } on NotificationServiceException catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
         return;
       }
     }
@@ -182,9 +181,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       await _service.markAllRead();
     } on NotificationServiceException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _markingAll = false);
     }

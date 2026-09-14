@@ -80,9 +80,7 @@ class WelcomeScreen extends StatelessWidget {
       ),
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppGradients.page,
-        ),
+        decoration: const BoxDecoration(gradient: AppGradients.page),
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(

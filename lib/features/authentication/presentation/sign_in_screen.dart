@@ -289,7 +289,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                 )
                               : const Icon(Icons.login_rounded),
                           label: Text(
-                            _isSubmitting ? 'Signing in...' : 'Sign in securely',
+                            _isSubmitting
+                                ? 'Signing in...'
+                                : 'Sign in securely',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -328,7 +330,8 @@ class _SignInScreenState extends State<SignInScreen> {
                           ],
                         ),
                       ),
-                      if (kDebugMode) const SizedBox(height: AppSpacing.regular),
+                      if (kDebugMode)
+                        const SizedBox(height: AppSpacing.regular),
 
                       if (kDebugMode)
                         OutlinedButton.icon(
